@@ -27,8 +27,8 @@ const HELP_SECTIONS = {
   activities: {
     title: '🎮 Активности',
     fields: [
-      { name: 'Команды', value: '`/game`, `/gamepanel`, `/quest`, `/event`, `/lfg`, `/tournament`, `/season`, `/battlepass`' },
-      { name: 'Что это дает', value: 'Игры, квесты, ивенты, поиск команды, турниры и сезонные награды.' }
+      { name: 'Команды', value: '`/game`, `/gamepanel`, `/music`, `/musicpanel`, `/quest`, `/event`, `/lfg`, `/tournament`, `/season`, `/battlepass`' },
+      { name: 'Что это дает', value: 'Игры, музыка, квесты, ивенты, поиск команды, турниры и сезонные награды.' }
     ]
   },
   support: {

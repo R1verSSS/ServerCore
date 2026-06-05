@@ -35,6 +35,8 @@ const { buildHostingReadiness } = require('./services/hostingCheckService');
 const { checkInteractionAccess, checkComponentAccess, denyInteraction } = require('./services/accessControlService');
 const { buildCommandReferencePayload } = require('./services/commandReferenceService');
 const { handleShopButton, handleShopSelect } = require('./services/shopPanel');
+const { handleProtectedChannelMessage } = require('./services/protectedChannelService');
+const { handleMusicButton, handleMusicModal } = require('./services/musicService');
 
 // Для нестабильных сетей Discord/Cloudflare: сначала пробуем IPv4.
 // Это часто устраняет UND_ERR_CONNECT_TIMEOUT на Windows.
@@ -103,6 +105,8 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 
 client.on('messageCreate', async message => {
   try {
+    const protectedDeleted = await handleProtectedChannelMessage(message);
+    if (protectedDeleted) return;
     const automod = await handleAutomodMessage(message);
     if (automod && automod.ok === false) return;
     await addMessageXp(message);
@@ -186,6 +190,14 @@ client.on('interactionCreate', async interaction => {
       return;
     }
 
+
+    if (interaction.isModalSubmit() && interaction.customId === 'music:modal:play') {
+      await safeDefer(interaction, true);
+      const payload = await handleMusicModal(interaction);
+      await safeEdit(interaction, payload);
+      return;
+    }
+
     if (interaction.isModalSubmit() && interaction.customId.startsWith('application:modal:')) {
       await safeDefer(interaction, true);
       const [, , type] = interaction.customId.split(':');
@@ -229,6 +241,16 @@ client.on('interactionCreate', async interaction => {
     if (interaction.isButton() && interaction.customId.startsWith('commands:open:')) {
       const section = interaction.customId.split(':')[2] || 'profile';
       await safeReply(interaction, buildCommandReferencePayload(section));
+      return;
+    }
+
+
+    if (interaction.isButton() && interaction.customId.startsWith('music:')) {
+      const payload = await handleMusicButton(interaction);
+      if (payload) {
+        await safeDefer(interaction, true);
+        await safeEdit(interaction, payload);
+      }
       return;
     }
 

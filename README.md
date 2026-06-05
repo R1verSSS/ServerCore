@@ -100,3 +100,24 @@ http://localhost:3000/network
 Добавлены централизованные права доступа, context-menu действия, новая роль 🧰 Helper, страница веб-панели `/access`, обновленные каналы справки команд и улучшенная структура магазина/модерации.
 
 Подробнее: `docs/permissions.md`.
+
+
+## v24.1.10 — Channel Cleanup & Music Panel
+
+Добавлено:
+
+- автоудаление обычных сообщений в информационных/панельных каналах;
+- канал `🎵・музыка` теперь получает музыкальную панель через `npm run setup`;
+- команды `/music` и `/musicpanel`;
+- поддержка YouTube video/playlist через voice-каналы;
+- новые зависимости `@discordjs/voice`, `play-dl`, `libsodium-wrappers`;
+- настройка `PROTECTED_TEXT_CHANNELS` для дополнительных защищенных каналов.
+
+После обновления выполните:
+
+```bash
+npm run deploy
+npm run setup
+```
+
+Подробнее: `docs/music-and-channel-cleanup.md`.

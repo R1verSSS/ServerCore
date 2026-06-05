@@ -1,7 +1,7 @@
 {
   "name": "servercore-discord-bot",
-  "version": "24.1.9",
-  "description": "ServerCore Discord bot v24.1 hosting-ready clean build",
+  "version": "24.1.10",
+  "description": "ServerCore Discord bot v24.1 hosting-ready with protected channels and music panel",
   "main": "http-wrapper.js",
   "scripts": {
     "start": "node http-wrapper.js",
@@ -24,7 +24,10 @@
     "discord.js": "^14.18.0",
     "dotenv": "^16.4.7",
     "express": "^4.19.2",
-    "pngjs": "^7.0.0"
+    "pngjs": "^7.0.0",
+    "@discordjs/voice": "^0.17.0",
+    "play-dl": "^1.9.7",
+    "libsodium-wrappers": "^0.7.15"
   },
   "devDependencies": {},
   "engines": {

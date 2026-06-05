@@ -15,11 +15,11 @@ const SECTIONS = {
   },
   activities: {
     label: 'Активности', emoji: '🎮', title: '🎮 Активности',
-    lines: ['`/event list/join/leave` — ивенты', '`/lfg create/list/join` — поиск команды', '`/game` — мини-игры', '`/quest daily/progress/claim` — квесты', '`/battlepass info/rewards/claim` — Battle Pass', '`/tournament list` — турниры', '`/suggest` — предложить идею', '`/poll` — опросы']
+    lines: ['`/music play` — музыка по YouTube-ссылке в voice-комнате', '`/music queue/pause/resume/skip/stop/leave` — управление музыкой', '`/musicpanel` — опубликовать музыкальную панель, доступно администрации', '`/event list/join/leave` — ивенты', '`/lfg create/list/join` — поиск команды', '`/game` — мини-игры', '`/quest daily/progress/claim` — квесты', '`/battlepass info/rewards/claim` — Battle Pass', '`/tournament list` — турниры', '`/suggest` — предложить идею', '`/poll` — опросы']
   },
   voice: {
     label: 'Voice', emoji: '🔊', title: '🔊 Голосовые комнаты',
-    lines: ['Зайди в `➕・создать-комнату`, чтобы получить личную комнату', '`/voice info` — информация', '`/voice lock/unlock` — закрыть или открыть комнату', '`/voice rename` — переименовать', '`/voice limit` — лимит участников', '`/voice invite` — пригласить пользователя', '`/voice delete` — удалить комнату']
+    lines: ['Зайди в `➕・создать-комнату`, чтобы получить личную комнату', 'Музыка: зайди в voice-канал и используй `/music play` или панель в `🎵・музыка`', '`/voice info` — информация', '`/voice lock/unlock` — закрыть или открыть комнату', '`/voice rename` — переименовать', '`/voice limit` — лимит участников', '`/voice invite` — пригласить пользователя', '`/voice delete` — удалить комнату']
   },
   support: {
     label: 'Поддержка', emoji: '🎫', title: '🎫 Поддержка и заявки',

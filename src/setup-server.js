@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionFlagsBits, EmbedBuilder, ChannelType } = require('discord.js');
 const { roles, categories } = require('./config/template');
 const { buildRolePanel } = require('./services/rolePanel');
 const { buildMainMenuPayload } = require('./services/userMenuService');
@@ -7,6 +7,7 @@ const { buildGamePanel } = require('./services/gamePanel');
 const { buildVoicePanel } = require('./services/tempVoiceService');
 const { buildModerationPanel } = require('./services/moderationPanel');
 const { buildShopPanel } = require('./services/shopPanel');
+const { buildMusicPanel } = require('./services/musicService');
 const { buildPublicCommandsPanel, buildModerationCommandsPanel } = require('./services/commandReferenceService');
 
 const client = new Client({
@@ -97,6 +98,7 @@ async function sendStarterMessages(guild) {
   const shopChannel = guild.channels.cache.find(ch => ch.name === '🛍・витрина');
   const botChannel = guild.channels.cache.find(ch => ch.name === '🤖・команды-бота');
   const miniGames = guild.channels.cache.find(ch => ch.name === '🎲・мини-игры');
+  const musicText = guild.channels.cache.find(ch => ch.name === '🎵・музыка' && ch.type === ChannelType.GuildText);
   const voiceHelp = guild.channels.cache.find(ch => ch.name === '🔊・общий войс') || guild.channels.cache.find(ch => ch.name === '🎧・чилл');
   const modPanel = guild.channels.cache.find(ch => ch.name === '🧰・панель-модерации');
   const modCommands = guild.channels.cache.find(ch => ch.name === '📘・команды-модерации');
@@ -124,6 +126,7 @@ async function sendStarterMessages(guild) {
   await sendOnce(shopChannel, buildShopPanel(), '🛒 Магазин сервера');
   await sendOnce(botChannel, { embeds: [botEmbed] }, '🤖 Команды бота');
   await sendOnce(miniGames, buildGamePanel(), '🎲 Панель мини-игр');
+  await sendOnce(musicText, buildMusicPanel(), '🎵 Музыкальная панель');
   await sendOnce(voiceHelp, buildVoicePanel(), '🔊 Управление личной voice-комнатой');
   await sendOnce(modPanel, buildModerationPanel(), '🧰 Панель модерации');
   await sendOnce(modCommands, buildModerationCommandsPanel(), '📘 Команды модерации');

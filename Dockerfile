@@ -17,7 +17,10 @@ RUN corepack enable \
     && pnpm install --prod --no-frozen-lockfile \
     && test -d node_modules/dotenv \
     && test -d node_modules/discord.js \
-    && test -d node_modules/express
+    && test -d node_modules/express \
+    && test -d node_modules/@discordjs/voice \
+    && test -d node_modules/play-dl \
+    && test -d node_modules/libsodium-wrappers
 
 COPY . .
 

@@ -35,6 +35,8 @@ const COMMAND_RULES = {
   gamepanel: { level: 'ADMIN' },
   applypanel: { level: 'ADMIN' },
   shoppanel: { level: 'ADMIN' },
+  musicpanel: { level: 'ADMIN' },
+  music: { level: 'MEMBER' },
 
   // Moderation
   warn: { level: 'MODERATOR' },
