@@ -1,0 +1,48 @@
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { safeDefer, safeEdit } = require('../utils/safeInteraction');
+const { buildUnlockedText } = require('../services/achievementService');
+const { createTicket } = require('../services/ticketService');
+
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('ticket')
+    .setDescription('Создать приватное обращение к администрации')
+    .addStringOption(option =>
+      option
+        .setName('причина')
+        .setDescription('Кратко опиши причину обращения')
+        .setRequired(false)
+        .setMaxLength(200)
+    ),
+
+  async execute(interaction) {
+    await safeDefer(interaction, { flags: MessageFlags.Ephemeral });
+
+    const reason = interaction.options.getString('причина') || 'Не указана';
+    const result = await createTicket(interaction, reason);
+
+    if (!result.ok && result.reason === 'already_open') {
+      const channelText = result.channel ? `${result.channel}` : 'старый канал не найден';
+      const embed = new EmbedBuilder()
+        .setColor(0xFEE75C)
+        .setTitle('⚠️ У тебя уже есть открытый тикет')
+        .setDescription(`Сначала закрой существующее обращение: ${channelText}`)
+        .setFooter({ text: 'ServerCore • Ticket System' });
+
+      await safeEdit(interaction, { embeds: [embed] });
+      return;
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor(0x57F287)
+      .setTitle('✅ Тикет создан')
+      .setDescription([
+        `Твой приватный канал обращения: ${result.channel}`,
+        result.unlockedAchievements?.length ? `\n🏅 **Новые достижения:**\n${buildUnlockedText(result.unlockedAchievements)}` : null
+      ].filter(Boolean).join('\n'))
+      .addFields({ name: 'Причина', value: result.ticket.reason, inline: false })
+      .setFooter({ text: 'ServerCore • Ticket System' });
+
+    await safeEdit(interaction, { embeds: [embed] });
+  },
+};

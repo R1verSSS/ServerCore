@@ -1,0 +1,33 @@
+{
+  "name": "servercore-discord-bot",
+  "version": "24.1.9",
+  "description": "ServerCore Discord bot v24.1 hosting-ready clean build",
+  "main": "http-wrapper.js",
+  "scripts": {
+    "start": "node http-wrapper.js",
+    "setup": "node src/setup-server.js",
+    "deploy": "node src/deploy-commands.js",
+    "db:migrate": "node src/tools/migrate-to-sqlite.js",
+    "db:backup": "node src/tools/backup-database.js",
+    "check": "node src/tools/check-syntax.js",
+    "env:check": "node src/tools/env-check.js",
+    "cleanup": "node src/tools/cleanup-files.js",
+    "safe:update": "node src/tools/safe-update.js",
+    "hosting:check": "node src/tools/hosting-check.js",
+    "net:check": "node src/tools/network-check.js",
+    "doctor": "node src/tools/doctor.js",
+    "start:direct": "node src/index.js",
+    "hosting:start": "node http-wrapper.js",
+    "postinstall": "node -e \"const fs=require('fs'); for (const d of ['data','data/backups','data/exports','logs']) fs.mkdirSync(d,{recursive:true});\""
+  },
+  "dependencies": {
+    "discord.js": "^14.18.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.19.2",
+    "pngjs": "^7.0.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=20"
+  }
+}
