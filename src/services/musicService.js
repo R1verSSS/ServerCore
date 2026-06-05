@@ -46,8 +46,19 @@ function getState(guildId) {
   return queues.get(guildId);
 }
 
-function getRequesterVoiceChannel(interaction) {
-  return interaction.member?.voice?.channel || null;
+async function getRequesterVoiceChannel(interaction) {
+  // В modal/button interaction.member иногда приходит без актуального voice-состояния.
+  // Поэтому дополнительно получаем GuildMember из кэша/Discord API.
+  const cachedChannel = interaction.member?.voice?.channel || null;
+  if (cachedChannel) return cachedChannel;
+
+  try {
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+    return member?.voice?.channel || null;
+  } catch (error) {
+    console.warn('[Music] Не удалось получить voice-состояние пользователя:', error?.message || error);
+    return null;
+  }
 }
 
 function isYoutubeUrl(url = '') {
@@ -93,8 +104,28 @@ async function resolveUrl(url, requestedBy) {
 }
 
 async function ensureConnection(interaction) {
-  const voiceChannel = getRequesterVoiceChannel(interaction);
+  const voiceChannel = await getRequesterVoiceChannel(interaction);
   if (!voiceChannel) return { ok: false, reason: 'not_in_voice' };
+
+  const me = interaction.guild?.members?.me || await interaction.guild.members.fetchMe().catch(() => null);
+  const permissions = me ? voiceChannel.permissionsFor(me) : null;
+  const missing = [];
+  if (permissions && !permissions.has('ViewChannel')) missing.push('ViewChannel');
+  if (permissions && !permissions.has('Connect')) missing.push('Connect');
+  if (permissions && !permissions.has('Speak')) missing.push('Speak');
+
+  // joinable/speakable учитывают overwrite конкретного канала. Это полезнее, чем проверять только роль сервера.
+  if (missing.length || voiceChannel.joinable === false || voiceChannel.speakable === false) {
+    console.warn('[Music] Нет доступа к voice-каналу:', {
+      guildId: interaction.guildId,
+      channelId: voiceChannel.id,
+      channelName: voiceChannel.name,
+      joinable: voiceChannel.joinable,
+      speakable: voiceChannel.speakable,
+      missing,
+    });
+    return { ok: false, reason: 'missing_voice_permissions', missing, voiceChannel };
+  }
 
   const state = getState(interaction.guildId);
   state.textChannelId = interaction.channelId;
@@ -105,8 +136,9 @@ async function ensureConnection(interaction) {
     connection = joinVoiceChannel({
       channelId: voiceChannel.id,
       guildId: interaction.guildId,
-      adapterCreator: interaction.guild.voiceAdapterCreator,
+      adapterCreator: voiceChannel.guild.voiceAdapterCreator,
       selfDeaf: true,
+      selfMute: false,
     });
   }
 
@@ -114,11 +146,19 @@ async function ensureConnection(interaction) {
   connection.subscribe(state.player);
 
   try {
-    await entersState(connection, VoiceConnectionStatus.Ready, Number(process.env.MUSIC_CONNECT_TIMEOUT || 15000));
+    await entersState(connection, VoiceConnectionStatus.Ready, Number(process.env.MUSIC_CONNECT_TIMEOUT || 30000));
   } catch (error) {
-    connection.destroy();
+    const message = error?.message || String(error);
+    console.error('[Music] Ошибка подключения к voice-каналу:', {
+      guildId: interaction.guildId,
+      channelId: voiceChannel.id,
+      channelName: voiceChannel.name,
+      status: connection.state?.status,
+      error: message,
+    });
+    try { connection.destroy(); } catch (_) {}
     state.connection = null;
-    return { ok: false, reason: 'connection_failed', error };
+    return { ok: false, reason: 'connection_failed', error, voiceChannel };
   }
 
   return { ok: true, state, voiceChannel };
@@ -307,7 +347,8 @@ async function handleMusicModal(interaction) {
     if (result.reason === 'not_in_voice') return { content: '❌ Сначала зайди в голосовой канал.', embeds: [], components: [] };
     if (result.reason === 'only_youtube') return { content: '❌ Сейчас поддерживаются только ссылки YouTube.', embeds: [], components: [] };
     if (result.reason === 'invalid_url') return { content: '❌ Не удалось распознать YouTube-ссылку.', embeds: [], components: [] };
-    if (result.reason === 'connection_failed') return { content: '❌ Не удалось подключиться к voice-каналу. Проверь права Connect/Speak.', embeds: [], components: [] };
+    if (result.reason === 'missing_voice_permissions') return { content: `❌ У меня нет доступа к voice-каналу **${result.voiceChannel?.name || 'канал'}**. Проверь права View Channel / Connect / Speak именно в этом канале или категории.`, embeds: [], components: [] };
+    if (result.reason === 'connection_failed') return { content: `❌ Не удалось подключиться к voice-каналу **${result.voiceChannel?.name || 'канал'}**. Я записал подробную ошибку в логи хостинга.`, embeds: [], components: [] };
     return { content: `❌ Не удалось добавить трек: ${result.reason || 'ошибка'}.`, embeds: [], components: [] };
   }
 
