@@ -168,9 +168,21 @@ function buildApplicationEmbed(app) {
   return embed;
 }
 
+function findApplicationsChannel(guild, settings = getSettings()) {
+  const channelId = settings.applicationsChannelId || process.env.APPLICATIONS_CHANNEL_ID;
+  const byId = channelId ? guild?.channels?.cache?.get(String(channelId)) : null;
+  if (byId && [ChannelType.GuildText, ChannelType.GuildForum].includes(byId.type)) return byId;
+
+  const channelName = settings.applicationsChannelName || '📨・заявки';
+  const byName = guild?.channels?.cache?.find(ch => [ChannelType.GuildText, ChannelType.GuildForum].includes(ch.type) && ch.name === channelName);
+  return byName || findTextChannelByName(guild, channelName);
+}
+
 async function publishApplication(guild, app) {
   const settings = getSettings();
-  let channel = findApplicationChannel(guild, settings.applicationsChannelName || '📨・заявки');
+
+  let channel = findApplicationsChannel(guild, settings);
+
   if (!channel) {
     const category = guild.channels.cache.find(item => item.type === ChannelType.GuildCategory && item.name.includes('МОДЕРАЦ'));
     channel = await guild.channels.create({
@@ -253,6 +265,7 @@ module.exports = {
   getApplication,
   buildApplicationEmbed,
   buildApplicationPanel,
+  findApplicationsChannel,
   publishApplication,
   notifyApplicant,
 };

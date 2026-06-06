@@ -15,6 +15,18 @@ function findTextOrForumChannel(guild, name, id) {
   }
   return guild?.channels.cache.find(ch => allowedTypes.has(ch.type) && ch.name === name) || null;
 }
+
+function buildStorageCheck(info) {
+  if (info.driver === 'sqlite') {
+    return check(true, `База данных SQLite активна${info.sqliteEngine ? ` (${info.sqliteEngine})` : ''}`, info.sqlitePath);
+  }
+  const configured = String(process.env.DB_DRIVER || 'json').toLowerCase();
+  if (configured === 'json') {
+    return check(true, 'База данных JSON активна', 'Для включения SQLite укажи DB_DRIVER=sqlite и запусти npm run db:migrate.');
+  }
+  return check(false, 'База данных SQLite не активна', `Используется fallback: ${info.sqliteUnavailableReason || 'JSON'}`);
+}
+
 function findVoiceChannel(guild, name) {
   return guild?.channels.cache.find(ch => ch.type === ChannelType.GuildVoice && ch.name === name) || null;
 }
@@ -33,12 +45,21 @@ async function buildHealthReport(client, guild) {
     : null;
   const checks = [];
 
-  checks.push(check(info.driver === 'sqlite', `База данных SQLite активна${info.sqliteEngine ? ` (${info.sqliteEngine})` : ''}`, info.driver === 'sqlite' ? info.sqlitePath : `Используется fallback: ${info.sqliteUnavailableReason || 'JSON'}`));
+  checks.push(buildStorageCheck(info));
   checks.push(check(Object.keys(db.users || {}).length >= 0, 'База пользователей читается'));
   checks.push(check(findTextChannel(guild, settings.logChannelName || '🛡・лог-модерации'), `Канал логов: ${settings.logChannelName || '🛡・лог-модерации'}`));
   checks.push(check(findTextChannel(guild, settings.eventsChannelName || '📅・ивенты'), `Канал ивентов: ${settings.eventsChannelName || '📅・ивенты'}`));
   checks.push(check(findTextChannel(guild, settings.miniGamesChannelName || '🎲・мини-игры'), `Канал мини-игр: ${settings.miniGamesChannelName || '🎲・мини-игры'}`));
-  checks.push(check(findTextOrForumChannel(guild, settings.applicationsChannelName || '📨・заявки', process.env.APPLICATIONS_CHANNEL_ID), `Канал заявок: ${settings.applicationsChannelName || '📨・заявки'}`, process.env.APPLICATIONS_CHANNEL_ID ? `ID: ${process.env.APPLICATIONS_CHANNEL_ID}` : 'Можно указать APPLICATIONS_CHANNEL_ID'));
+  const applicationsChannel = findTextOrForumChannel(
+    guild,
+    settings.applicationsChannelName || '📨・заявки',
+    settings.applicationsChannelId || process.env.APPLICATIONS_CHANNEL_ID
+  );
+  checks.push(check(
+    applicationsChannel,
+    `Канал заявок: ${applicationsChannel?.name || settings.applicationsChannelName || '📨・заявки'}`,
+    `Укажи applicationsChannelId или APPLICATIONS_CHANNEL_ID. Текущий ID: ${settings.applicationsChannelId || process.env.APPLICATIONS_CHANNEL_ID || 'не указан'}`
+  ));
   checks.push(check(findVoiceChannel(guild, '➕・создать-комнату'), 'Voice-триггер: ➕・создать-комнату', 'Создай через /voice setup'));
   checks.push(check(Boolean(botMember), 'Данные роли бота доступны в кэше', 'Перезапусти бота или проверь, что он находится на сервере'));
   checks.push(check(botMember?.permissions.has(PermissionFlagsBits.ManageChannels), 'У бота есть Manage Channels', 'Нужно для voice-комнат, тикетов и LFG'));

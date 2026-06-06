@@ -53,6 +53,24 @@ npm start
 
 После обновления заново запустите бота и вызовите новую команду `/me`. Старые уже отправленные сообщения можно удалить.
 
+## v24.1.27 Hosting Self-check & Applications Forum Fix
+
+- Исправлен self-check хранилища: если `DB_DRIVER=json`, JSON-хранилище считается штатным режимом для Bothost/Node 20, а не ошибкой SQLite.
+- Если SQLite включен через `DB_DRIVER=sqlite`, но недоступен, self-check теперь показывает корректное предупреждение и причину fallback.
+- Добавлена настройка `applicationsChannelId` / `APPLICATIONS_CHANNEL_ID` для канала заявок.
+- Канал заявок теперь может быть не только текстовым каналом, но и Forum-каналом.
+- Для текущего сервера добавлен ID Forum-канала заявок: `1512791242000564229`.
+- Публикация заявок теперь сначала ищет канал по ID, затем по названию `📨・заявки`.
+
+После обновления на хостинге рекомендуется указать в `.env`:
+
+```env
+DB_DRIVER=json
+APPLICATIONS_CHANNEL_ID=1512791242000564229
+```
+
+Затем выполнить `npm install`, `npm run setup` и перезапустить бота.
+
 ## v24.1.28 — SQLite migration + Forum applications channel
 
 - Добавлена поддержка SQLite на Node.js 20 через `better-sqlite3`.

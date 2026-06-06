@@ -19,7 +19,9 @@ function buildHostingReadiness() {
   checks.push(env.DISCORD_TOKEN ? ok('DISCORD_TOKEN задан', `значение: ${mask(env.DISCORD_TOKEN)}`) : warn('DISCORD_TOKEN не задан', 'Добавь токен бота в переменные окружения хостинга.'));
   checks.push(env.CLIENT_ID ? ok('CLIENT_ID задан') : warn('CLIENT_ID не задан', 'Нужен для deploy slash-команд.'));
   checks.push(env.GUILD_ID ? ok('GUILD_ID задан') : warn('GUILD_ID не задан', 'Нужен для guild deploy и setup.'));
-  checks.push(info.driver === 'sqlite' ? ok(`SQLite активен${info.sqliteEngine ? ` (${info.sqliteEngine})` : ''}`, info.sqlitePath) : warn('SQLite не активен', info.sqliteUnavailableReason || 'Проверь DB_DRIVER=sqlite, SQLITE_PATH и установку better-sqlite3.'));
+  checks.push(info.driver === 'sqlite'
+    ? ok(`SQLite активен${info.sqliteEngine ? ` (${info.sqliteEngine})` : ''}`, info.sqlitePath)
+    : warn('SQLite не активен', info.sqliteUnavailableReason || 'Проверь DB_DRIVER=sqlite, SQLITE_PATH и установку better-sqlite3.'));
   checks.push(fs.existsSync(path.join(process.cwd(), 'data')) ? ok('Папка data существует') : warn('Папка data отсутствует', 'Создай data/ или запусти миграцию.'));
   checks.push(fs.existsSync(path.join(process.cwd(), 'data', 'backups')) ? ok('Папка backups существует') : warn('Папка backups отсутствует', 'Создай первый бэкап или папку data/backups.'));
   checks.push(String(env.WEB_PANEL_ENABLED || 'true').toLowerCase() !== 'false' ? ok('Веб-панель включена') : warn('Веб-панель выключена', 'WEB_PANEL_ENABLED=false.'));
