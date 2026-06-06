@@ -168,28 +168,47 @@ function buildApplicationEmbed(app) {
   return embed;
 }
 
-function findApplicationsChannel(guild, settings = getSettings()) {
-  const channelId = settings.applicationsChannelId || process.env.APPLICATIONS_CHANNEL_ID;
+function findRoutedApplicationChannel(guild, app, settings = getSettings()) {
+  const isComplaint = app?.type === 'complaint';
+  const channelId = isComplaint
+    ? (settings.complaintsChannelId || process.env.COMPLAINTS_CHANNEL_ID)
+    : (settings.applicationsChannelId || process.env.APPLICATIONS_CHANNEL_ID);
+  const channelName = isComplaint
+    ? (settings.complaintsChannelName || process.env.COMPLAINTS_CHANNEL_NAME || '🚨・жалобы')
+    : (settings.applicationsChannelName || '📨・заявки');
+
   const byId = channelId ? guild?.channels?.cache?.get(String(channelId)) : null;
   if (byId && [ChannelType.GuildText, ChannelType.GuildForum].includes(byId.type)) return byId;
 
-  const channelName = settings.applicationsChannelName || '📨・заявки';
   const byName = guild?.channels?.cache?.find(ch => [ChannelType.GuildText, ChannelType.GuildForum].includes(ch.type) && ch.name === channelName);
   return byName || findTextChannelByName(guild, channelName);
+}
+
+function getApplicationChannelName(app, settings = getSettings()) {
+  return app?.type === 'complaint'
+    ? (settings.complaintsChannelName || process.env.COMPLAINTS_CHANNEL_NAME || '🚨・жалобы')
+    : (settings.applicationsChannelName || '📨・заявки');
+}
+
+function getForumTagsForApplicationChannel(app) {
+  if (app?.type === 'complaint') {
+    return ['Жалоба', 'На проверке', 'Решено', 'Отклонено'].map(name => ({ name, moderated: false }));
+  }
+  return ['Модератор', 'Партнерство', 'Кастомная роль', 'Турнир', 'Идея', 'Другое'].map(name => ({ name, moderated: false }));
 }
 
 async function publishApplication(guild, app) {
   const settings = getSettings();
 
-  let channel = findApplicationsChannel(guild, settings);
+  let channel = findRoutedApplicationChannel(guild, app, settings);
 
   if (!channel) {
     const category = guild.channels.cache.find(item => item.type === ChannelType.GuildCategory && item.name.includes('МОДЕРАЦ'));
     channel = await guild.channels.create({
-      name: settings.applicationsChannelName || '📨・заявки',
+      name: getApplicationChannelName(app, settings),
       type: ChannelType.GuildForum,
       parent: category?.id || null,
-      availableTags: ['Модератор', 'Партнерство', 'Кастомная роль', 'Турнир', 'Другое'].map(name => ({ name, moderated: false })),
+      availableTags: getForumTagsForApplicationChannel(app),
     });
   }
 
@@ -199,7 +218,8 @@ async function publishApplication(guild, app) {
   );
   if (channel.type === ChannelType.GuildForum) {
     const cfg = getApplicationType(app.type);
-    const tag = channel.availableTags?.find(item => item.name === (cfg.label?.replace('Заявка на ', '').replace('Заявка в ', '') || 'Другое')) || null;
+    const tagName = app.type === 'complaint' ? 'Жалоба' : (cfg.label?.replace('Заявка на ', '').replace('Заявка в ', '') || 'Другое');
+    const tag = channel.availableTags?.find(item => item.name === tagName) || null;
     await channel.threads.create({
       name: `Заявка #${app.id} — ${app.typeLabel || app.type}`.slice(0, 90),
       message: { embeds: [buildApplicationEmbed(app)], components: [row] },

@@ -1,6 +1,6 @@
 {
   "name": "servercore-discord-bot",
-  "version": "24.1.30",
+  "version": "24.1.31",
   "description": "ServerCore Discord bot v24.1 user experience flow upgrade",
   "main": "http-wrapper.js",
   "scripts": {

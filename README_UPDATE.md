@@ -94,3 +94,11 @@ APPLICATIONS_CHANNEL_ID=1512791242000564229
 - Канал `📨・заявки` остаётся только для заявок/анкет.
 - Закрытые тикеты сохраняются в архивный канал или Forum `📁・тикеты`.
 - Добавлены переменные `TICKET_ACTIVE_CATEGORY_*` и `TICKET_ARCHIVE_CHANNEL_*`.
+
+
+## v24.1.31 — Web URL and complaint forum routing
+
+- Updated default web-panel URL to `https://bot-1780769817-2659-r1vers.bothost.tech/login`.
+- Added separate complaint routing: application type `complaint` is published to `COMPLAINTS_CHANNEL_ID=1512791244965806170`.
+- Other application types continue to use `APPLICATIONS_CHANNEL_ID=1512791242000564229`.
+- Added settings keys `complaintsChannelName` and `complaintsChannelId`.

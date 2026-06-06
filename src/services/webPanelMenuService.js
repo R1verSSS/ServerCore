@@ -1,7 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 
 const PANEL_COLOR = 0x5865F2;
-const DEFAULT_LOGIN_URL = 'https://bot-1780694887-7211-r1vers.bothost.tech/login';
+const DEFAULT_LOGIN_URL = 'https://bot-1780769817-2659-r1vers.bothost.tech/login';
 
 function getWebPanelUrl(path = '/login') {
   const raw = process.env.WEB_PANEL_URL || process.env.PUBLIC_WEB_PANEL_URL || DEFAULT_LOGIN_URL;

@@ -60,6 +60,18 @@ async function buildHealthReport(client, guild) {
     `Канал заявок: ${applicationsChannel?.name || settings.applicationsChannelName || '📨・заявки'}`,
     `Укажи applicationsChannelId или APPLICATIONS_CHANNEL_ID. Текущий ID: ${settings.applicationsChannelId || process.env.APPLICATIONS_CHANNEL_ID || 'не указан'}`
   ));
+
+  const complaintsChannel = findTextOrForumChannel(
+    guild,
+    settings.complaintsChannelName || process.env.COMPLAINTS_CHANNEL_NAME || '🚨・жалобы',
+    settings.complaintsChannelId || process.env.COMPLAINTS_CHANNEL_ID
+  );
+
+  checks.push(check(
+    complaintsChannel,
+    `Канал жалоб: ${complaintsChannel?.name || settings.complaintsChannelName || '🚨・жалобы'}`,
+    `Укажи complaintsChannelId или COMPLAINTS_CHANNEL_ID. Текущий ID: ${settings.complaintsChannelId || process.env.COMPLAINTS_CHANNEL_ID || 'не указан'}`
+  ));
   checks.push(check(findVoiceChannel(guild, '➕・создать-комнату'), 'Voice-триггер: ➕・создать-комнату', 'Создай через /voice setup'));
   checks.push(check(Boolean(botMember), 'Данные роли бота доступны в кэше', 'Перезапусти бота или проверь, что он находится на сервере'));
   checks.push(check(botMember?.permissions.has(PermissionFlagsBits.ManageChannels), 'У бота есть Manage Channels', 'Нужно для voice-комнат, тикетов и LFG'));
