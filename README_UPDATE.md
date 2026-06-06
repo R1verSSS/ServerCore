@@ -1,4 +1,13 @@
 
+## v24.1.33 — Bothost Discord Voice / Music Diagnostic Fix
+
+- Dockerfile дополнен `ffmpeg`, `libsodium23`, `dnsutils`, `netcat-openbsd`.
+- Добавлены voice-зависимости `@discordjs/opus`, `opusscript`, `sodium-native`, `tweetnacl`.
+- Добавлена команда `/music diagnose` и npm-скрипт `npm run voice:diagnose`.
+- Добавлены расширенные логи подключения Discord Voice, `MUSIC_DEBUG`, `MUSIC_FORCE_IPV4`, увеличенный timeout.
+- Патч помогает отличить проблему зависимостей от проблемы Docker/NAT/UDP на ноде хостинга.
+
+
 ## v24.1.24 — UX Flow Smart Center Hotfix
 
 - Исправлены кнопки под `/me`: `Магазин`, `Профиль`, `Достижения`, `Веб-панель`.

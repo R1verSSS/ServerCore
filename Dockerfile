@@ -2,6 +2,11 @@ FROM node:20-bookworm-slim
 
 WORKDIR /app
 
+# Discord Voice/YouTube audio needs ffmpeg and sodium runtime libraries.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg libsodium23 ca-certificates dnsutils netcat-openbsd iputils-ping \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV NODE_ENV=production
 ENV NPM_CONFIG_AUDIT=false
 ENV NPM_CONFIG_FUND=false
@@ -21,7 +26,12 @@ RUN corepack enable \
     && test -f node_modules/@discordjs/voice/package.json \
     && test -f node_modules/play-dl/package.json \
     && test -f node_modules/libsodium-wrappers/package.json \
-    && test -f node_modules/better-sqlite3/package.json
+    && test -f node_modules/sodium-native/package.json \
+    && test -f node_modules/@discordjs/opus/package.json \
+    && test -f node_modules/opusscript/package.json \
+    && test -f node_modules/tweetnacl/package.json \
+    && test -f node_modules/better-sqlite3/package.json \
+    && ffmpeg -version >/dev/null
 
 COPY . .
 
