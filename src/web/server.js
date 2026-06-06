@@ -19,6 +19,7 @@ const { buildHealthReport, formatHealthLines } = require('../services/healthChec
 const { buildMainMenuPayload } = require('../services/userMenuService');
 const { buildWebPanelMenuPayload, getWebPanelUrl } = require('../services/webPanelMenuService');
 const { buildThreadPanel, getForumOptions } = require('../services/threadForumService');
+const { buildBotQuickMenuPanel } = require('../services/botQuickMenuService');
 const { SETTINGS_DESCRIPTIONS } = require('../services/settingsService');
 const { listAudit, addAudit } = require('../services/auditService');
 const { getMaintenance, setMaintenance } = require('../services/maintenanceService');
@@ -464,6 +465,7 @@ function startWebPanel(client) {
     const body = `<div class="card"><h2>⚡ Быстрые действия</h2><p class="muted">Здесь собраны частые операции администратора. Опасные действия требуют подтверждения.</p></div>
     <div class="grid section">
       <div class="card quick-card"><h3>🌐 Веб-панель</h3><p class="muted">Опубликовать меню входа в пользовательскую/админскую веб-панель.</p><form method="post" action="/actions/webpanel-panel"><button>Опубликовать</button></form></div>
+      <div class="card quick-card"><h3>🤖 Быстрое меню бота</h3><p class="muted">Опубликовать панель быстрых действий в канал 🤖・команды-бота.</p><form method="post" action="/actions/botquick-panel"><button>Опубликовать</button></form></div>
       <div class="card quick-card"><h3>✅ Панель ролей</h3><p class="muted">Отправить выбор ролей в канал получения ролей.</p><form method="post" action="/actions/role-panel"><button>Опубликовать</button></form></div>
       <div class="card quick-card"><h3>🎲 Панель мини-игр</h3><p class="muted">Отправить игровую панель в канал мини-игр.</p><form method="post" action="/actions/game-panel"><button>Опубликовать</button></form></div>
       <div class="card quick-card"><h3>🧰 Панель модерации</h3><p class="muted">Отправить модераторскую панель в закрытый канал.</p><form method="post" action="/actions/mod-panel"><button>Опубликовать</button></form></div>
@@ -479,7 +481,7 @@ function startWebPanel(client) {
 
   app.get('/panels', (req, res) => {
     const guild = getGuild(client);
-    const body = `<div class="card"><h2>📌 Мастер публикации Discord-панелей</h2><p class="muted">Выбери тип панели, канал и нажми “Опубликовать”. Это удобно после переезда на новый сервер или если сообщение панели удалили.</p></div><div class="grid-2 section"><div class="card"><h2>Опубликовать панель</h2><form method="post" action="/actions/publish-panel"><label>Тип панели<select name="type"><option value="main">🧭 Главное меню</option><option value="webpanel">🌐 Веб-панель</option><option value="roles">✅ Панель ролей</option><option value="games">🎲 Мини-игры</option><option value="moderation">🧰 Модерация</option><option value="applications">📨 Заявки</option><option value="tickets">🎫 Поддержка / тикеты</option><option value="voice">🔊 Voice-комнаты</option><option value="shop">🛒 Магазин</option><option value="commands">📚 Все команды</option><option value="modcommands">📘 Команды модерации</option><option value="threads">🧵 Темы и ветки</option></select></label><label>Канал<select name="channelId">${getChannelOptions(guild)}</select></label><button>Опубликовать</button></form></div><div class="card"><h2>Подсказка</h2><p class="muted">Рекомендуемые каналы: главное меню → 🧭・навигация, роли → ✅・получить-роли, мини-игры → 🎲・мини-игры, модерация → 🧰・панель-модерации, заявки → 📨・заявки.</p><p><a class="pill" href="/quick-actions">Быстрые действия</a><a class="pill" href="/settings">Настройки каналов</a></p></div></div>`;
+    const body = `<div class="card"><h2>📌 Мастер публикации Discord-панелей</h2><p class="muted">Выбери тип панели, канал и нажми “Опубликовать”. Это удобно после переезда на новый сервер или если сообщение панели удалили.</p></div><div class="grid-2 section"><div class="card"><h2>Опубликовать панель</h2><form method="post" action="/actions/publish-panel"><label>Тип панели<select name="type"><option value="main">🧭 Главное меню</option><option value="webpanel">🌐 Веб-панель</option><option value="botquick">🤖 Быстрое меню бота</option><option value="roles">✅ Панель ролей</option><option value="games">🎲 Мини-игры</option><option value="moderation">🧰 Модерация</option><option value="applications">📨 Заявки</option><option value="tickets">🎫 Поддержка / тикеты</option><option value="voice">🔊 Voice-комнаты</option><option value="shop">🛒 Магазин</option><option value="commands">📚 Все команды</option><option value="modcommands">📘 Команды модерации</option><option value="threads">🧵 Темы и ветки</option></select></label><label>Канал<select name="channelId">${getChannelOptions(guild)}</select></label><button>Опубликовать</button></form></div><div class="card"><h2>Подсказка</h2><p class="muted">Рекомендуемые каналы: главное меню → 🧭・навигация, роли → ✅・получить-роли, мини-игры → 🎲・мини-игры, модерация → 🧰・панель-модерации, заявки → 📨・заявки.</p><p><a class="pill" href="/quick-actions">Быстрые действия</a><a class="pill" href="/settings">Настройки каналов</a></p></div></div>`;
     res.send(layout('Панели Discord', body, req.query.message, req.query.warning));
   });
 
@@ -817,6 +819,7 @@ npm start</div></div></div>`;
     let ok = false;
     if (type === 'main') ok = await safeSend(channel, buildMainMenuPayload());
     else if (type === 'webpanel') ok = await safeSend(channel, buildWebPanelMenuPayload());
+    else if (type === 'botquick') ok = await safeSend(channel, buildBotQuickMenuPanel());
     else if (type === 'roles') ok = await safeSend(channel, buildRolePanel());
     else if (type === 'games') ok = await safeSend(channel, require('../services/gamePanel').buildGamePanel ? require('../services/gamePanel').buildGamePanel() : { content: '🎲 Используйте /game или /gamepanel.' });
     else if (type === 'moderation') { const result = await sendModerationPanel(guild).catch(() => ({ok:false})); ok = result.ok; }
@@ -833,6 +836,8 @@ npm start</div></div></div>`;
   });
 
   app.post('/actions/webpanel-panel', async (req, res) => { const guild = getGuild(client); const channel = guild?.channels.cache.find(ch => ch.name === '🧭・навигация') || guild?.channels.cache.find(ch => ch.name === '🤖・команды-бота'); const ok = await safeSend(channel, buildWebPanelMenuPayload()); if (ok && channel) registerPanelPublish('webpanel', channel.id, channel.name, 'web-panel'); res.redirect(redirect('/quick-actions', ok ? 'Меню веб-панели отправлено.' : 'Не удалось отправить меню веб-панели.')); });
+
+  app.post('/actions/botquick-panel', async (req, res) => { const guild = getGuild(client); const channel = guild?.channels.cache.find(ch => ch.name === '🤖・команды-бота'); const ok = await safeSend(channel, buildBotQuickMenuPanel()); if (ok && channel) registerPanelPublish('botquick', channel.id, channel.name, 'web-panel'); res.redirect(redirect('/quick-actions', ok ? 'Быстрое меню бота отправлено.' : 'Канал 🤖・команды-бота не найден.')); });
 
   app.post('/actions/role-panel', async (req, res) => { const guild = getGuild(client); const channel = findTextChannelByName(guild, '✅・получить-роли'); const ok = await safeSend(channel, buildRolePanel()); res.redirect(redirect('/settings', ok ? 'Панель ролей отправлена.' : 'Канал ✅・получить-роли не найден.')); });
   app.post('/actions/send-message', async (req, res) => { const guild = getGuild(client); const channel = guild?.channels.cache.get(req.body.channelId); const message = String(req.body.message || '').trim(); const ok = channel && message ? await safeSend(channel, message.slice(0, 1900)) : false; res.redirect(redirect(req.body.redirect || '/settings', ok ? 'Сообщение отправлено.' : 'Не удалось отправить сообщение.')); });

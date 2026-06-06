@@ -11,6 +11,7 @@ const { buildMusicPanel, isMusicEnabled } = require('./services/musicService');
 const { buildPublicCommandsPanel, buildModerationCommandsPanel } = require('./services/commandReferenceService');
 const { buildWebPanelMenuPayload } = require('./services/webPanelMenuService');
 const { buildThreadPanel } = require('./services/threadForumService');
+const { buildBotQuickMenuPanel } = require('./services/botQuickMenuService');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
@@ -148,7 +149,7 @@ async function sendStarterMessages(guild) {
   await sendOnce(commandsChannel, buildPublicCommandsPanel(), '📚 Команды сервера');
   await sendOnce(threadHub, buildThreadPanel(), '🧵 Темы и ветки сервера', { pin: true });
   await sendOnce(shopChannel, buildShopPanel(), '🛒 Магазин сервера');
-  await sendOnce(botChannel, { embeds: [botEmbed] }, '🤖 Команды бота');
+  await sendOnce(botChannel, buildBotQuickMenuPanel(), '🤖 Быстрое меню бота', { pin: true });
   await sendOnce(botChannel, buildWebPanelMenuPayload(), '🌐 Веб-панель ServerCore');
   await sendOnce(miniGames, buildGamePanel(), '🎲 Панель мини-игр');
   if (isMusicEnabled()) {

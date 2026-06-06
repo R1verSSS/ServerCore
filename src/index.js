@@ -39,6 +39,7 @@ const { handleProtectedChannelMessage } = require('./services/protectedChannelSe
 const { handleMusicButton, handleMusicModal } = require('./services/musicService');
 const { buildWebPanelHelpPayload } = require('./services/webPanelMenuService');
 const { buildThreadHelpPayload, buildThreadCreateModal, createForumThreadFromModal } = require('./services/threadForumService');
+const { buildBotQuickMenuPanel, buildBotQuickSectionPayload } = require('./services/botQuickMenuService');
 
 // Для нестабильных сетей Discord/Cloudflare: сначала пробуем IPv4.
 // Это часто устраняет UND_ERR_CONNECT_TIMEOUT на Windows.
@@ -217,6 +218,17 @@ client.on('interactionCreate', async interaction => {
     if (interaction.isButton() && interaction.customId.startsWith('applypanel:')) {
       const [, type] = interaction.customId.split(':');
       await interaction.showModal(buildApplyModal(type));
+      return;
+    }
+
+    if (interaction.isStringSelectMenu() && interaction.customId === 'botquick:section') {
+      const section = interaction.values?.[0] || 'personal';
+      await safeReply(interaction, buildBotQuickSectionPayload(section));
+      return;
+    }
+
+    if (interaction.isButton() && interaction.customId === 'botquick:back') {
+      await safeReply(interaction, buildBotQuickMenuPanel());
       return;
     }
 
