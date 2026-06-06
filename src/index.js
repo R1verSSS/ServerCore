@@ -38,7 +38,8 @@ const { buildCommandReferencePayload } = require('./services/commandReferenceSer
 const { handleShopButton, handleShopSelect } = require('./services/shopPanel');
 const { handleProtectedChannelMessage } = require('./services/protectedChannelService');
 const { handleMusicButton, handleMusicModal } = require('./services/musicService');
-const { buildWebPanelHelpPayload } = require('./services/webPanelMenuService');
+const { buildWebPanelHelpPayload, buildWebPanelLoginCodePayload } = require('./services/webPanelMenuService');
+const { generateLoginCode } = require('./services/webAccountService');
 const { buildThreadPanel, buildThreadHelpPayload, buildThreadCreateModal, createForumThreadFromModal } = require('./services/threadForumService');
 const { buildBotQuickMenuPanel, buildBotQuickSectionPayload } = require('./services/botQuickMenuService');
 const { buildSmartCenterPayload, buildMyItemsPayload, rememberUserAction, buildAfterActionPayload } = require('./services/uxFlowService');
@@ -302,6 +303,11 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.isButton() && interaction.customId.startsWith('webpanel:')) {
       const [, kind] = interaction.customId.split(':');
+      if (kind === 'code') {
+        const result = generateLoginCode(interaction.user.id, interaction.user.username);
+        await safeReply(interaction, buildWebPanelLoginCodePayload(interaction.user, result));
+        return;
+      }
       await safeReply(interaction, buildWebPanelHelpPayload(kind || 'help'));
       return;
     }

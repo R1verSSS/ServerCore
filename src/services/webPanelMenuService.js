@@ -1,4 +1,4 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 
 const PANEL_COLOR = 0x5865F2;
 const DEFAULT_LOGIN_URL = 'https://bot-1780694887-7211-r1vers.bothost.tech/login';
@@ -22,7 +22,7 @@ function buildWebPanelMenuPayload() {
       'Веб-панель позволяет пользоваться функциями сервера через браузер.',
       '',
       '**Администратор:** входит через логин `Admin` и пароль из настроек хостинга `WEB_PASSWORD`.',
-      '**Пользователь:** входит через свой Discord ID и пароль/одноразовый код, созданный командой `/webaccount`.',
+      '**Пользователь:** входит через свой Discord ID и пароль/одноразовый код. Кнопка **Одноразовый код** выдаёт код сразу.',
       '',
       `🔗 **Ссылка для входа:** ${loginUrl}`
     ].join('\n'))
@@ -33,7 +33,7 @@ function buildWebPanelMenuPayload() {
           'Профиль, баланс, последние операции, инвентарь, тикеты, ивенты, покупки и веб-аккаунт.',
           '`/webaccount status` — проверить аккаунт',
           '`/webaccount password` — задать пароль',
-          '`/webaccount login-code` — получить одноразовый код'
+          'Кнопка **Одноразовый код** — получить временный код без ввода команды'
         ].join('\n'),
         inline: false
       },
@@ -44,7 +44,7 @@ function buildWebPanelMenuPayload() {
       },
       {
         name: '🔐 Безопасность',
-        value: 'Не отправляй свой пароль в общий чат. Для разового входа лучше использовать `/webaccount login-code`.',
+        value: 'Не отправляй свой пароль в общий чат. Для разового входа нажми кнопку **Одноразовый код** под этим меню.',
         inline: false
       }
     )
@@ -74,7 +74,7 @@ function buildWebPanelHelpPayload(kind = 'help') {
       description: [
         `1. Открой ссылку: ${loginUrl}`,
         '2. Выбери режим входа: **Администратор** или **Пользователь**.',
-        '3. Для пользовательского входа заранее создай пароль или одноразовый код через `/webaccount`.',
+        '3. Для пользовательского входа заранее создай пароль или нажми кнопку **Одноразовый код** под меню.',
         '4. После входа пользователь видит только свои данные, а админ — административную панель.'
       ].join('\n')
     },
@@ -83,7 +83,7 @@ function buildWebPanelHelpPayload(kind = 'help') {
       description: [
         'Используй в Discord одну из команд:',
         '`/webaccount password value:твой_пароль` — создать постоянный пароль.',
-        '`/webaccount login-code` — получить одноразовый код на 10 минут.',
+        'Кнопка **Одноразовый код** под меню — получить временный код на 10 минут.',
         '`/webaccount status` — проверить состояние аккаунта.',
         '',
         'Логин для сайта — твой Discord ID.'
@@ -92,7 +92,8 @@ function buildWebPanelHelpPayload(kind = 'help') {
     code: {
       title: '🔑 Одноразовый код входа',
       description: [
-        'Команда `/webaccount login-code` создаёт временный код на 10 минут.',
+        'Эта кнопка сразу создаёт временный код на 10 минут.',
+        'Код виден только тебе в ephemeral-сообщении Discord.',
         'Это удобно, если не хочешь хранить постоянный пароль.',
         '',
         `После получения кода открой: ${loginUrl}`
@@ -122,4 +123,31 @@ function buildWebPanelHelpPayload(kind = 'help') {
   return { embeds: [embed], components: [row] };
 }
 
-module.exports = { getWebPanelUrl, buildWebPanelMenuPayload, buildWebPanelHelpPayload };
+function buildWebPanelLoginCodePayload(user, result) {
+  const loginUrl = getWebPanelUrl('/login');
+  const ok = result && result.ok !== false;
+  const embed = new EmbedBuilder()
+    .setColor(ok ? 0x57F287 : 0xED4245)
+    .setTitle(ok ? '🔑 Одноразовый код входа' : '❌ Не удалось создать код')
+    .setDescription(ok
+      ? [
+          `Твой одноразовый код: **${result.code}**`,
+          '',
+          `Логин для сайта: \`${user.id}\``,
+          `Код действует примерно **${result.minutes} минут**.`,
+          'После успешного входа код будет сброшен.',
+          '',
+          `Открой веб-панель и выбери режим **Пользователь**: ${loginUrl}`
+        ].join('\n')
+      : 'Попробуй ещё раз позже или сообщи администрации.')
+    .setFooter({ text: 'ServerCore • Web Login Code' })
+    .setTimestamp();
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setLabel('Открыть веб-панель').setEmoji('🌐').setStyle(ButtonStyle.Link).setURL(loginUrl)
+  );
+
+  return { embeds: [embed], components: [row], flags: MessageFlags.Ephemeral };
+}
+
+module.exports = { getWebPanelUrl, buildWebPanelMenuPayload, buildWebPanelHelpPayload, buildWebPanelLoginCodePayload };
