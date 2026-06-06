@@ -31,6 +31,8 @@ const COMMAND_RULES = {
   'hosting-check': { level: 'ADMIN' },
   'network-check': { level: 'ADMIN' },
   'production-check': { level: 'ADMIN' },
+  'update-check': { level: 'ADMIN' },
+  'vps-check': { level: 'ADMIN' },
   dbstatus: { level: 'ADMIN' },
   modpanel: { level: 'MODERATOR' },
   gamepanel: { level: 'ADMIN' },

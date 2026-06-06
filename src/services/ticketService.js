@@ -70,7 +70,16 @@ function saveTicket(ticket) {
   return ticket;
 }
 
-function createTicketRecord({ userId, username, channelId, reason }) {
+function normalizePriority(priority) {
+  const value = String(priority || 'normal').toLowerCase();
+  return ['low', 'normal', 'high', 'urgent'].includes(value) ? value : 'normal';
+}
+
+function priorityLabel(priority) {
+  return { low: 'Низкий', normal: 'Обычный', high: 'Высокий', urgent: 'Срочный' }[normalizePriority(priority)] || 'Обычный';
+}
+
+function createTicketRecord({ userId, username, channelId, reason, templateId = 'other', priority = 'normal' }) {
   const db = readDatabase();
   ensureTicketStore(db);
 
@@ -84,6 +93,10 @@ function createTicketRecord({ userId, username, channelId, reason }) {
     username,
     channelId,
     reason: reason || 'Не указана',
+    templateId,
+    priority: normalizePriority(priority),
+    assignedTo: null,
+    assignedName: null,
     status: 'open',
     createdAt: now,
     closedAt: null,
@@ -95,7 +108,19 @@ function createTicketRecord({ userId, username, channelId, reason }) {
   return ticket;
 }
 
-function closeTicketRecord(channelId, closedBy) {
+function updateTicketRecord(id, patch = {}) {
+  const db = readDatabase();
+  ensureTicketStore(db);
+  const ticket = db.tickets[String(id)];
+  if (!ticket) return null;
+  Object.assign(ticket, patch, { updatedAt: new Date().toISOString() });
+  if (patch.priority) ticket.priority = normalizePriority(patch.priority);
+  db.tickets[String(id)] = ticket;
+  writeDatabase(db);
+  return ticket;
+}
+
+function closeTicketRecord(channelId, closedBy, closeReason = '') {
   const db = readDatabase();
   ensureTicketStore(db);
 
@@ -108,6 +133,7 @@ function closeTicketRecord(channelId, closedBy) {
   ticket.status = 'closed';
   ticket.closedAt = new Date().toISOString();
   ticket.closedBy = closedBy;
+  ticket.closeReason = closeReason || ticket.closeReason || '';
   db.tickets[ticket.id] = ticket;
   writeDatabase(db);
   return ticket;
@@ -145,7 +171,7 @@ function memberCanCloseTicket(member, ticket) {
   return member.roles.cache.some(role => ADMIN_ROLE_NAMES.includes(role.name));
 }
 
-async function createTicket(interaction, reason) {
+async function createTicket(interaction, reason, options = {}) {
   const existingTicket = getOpenTicketByUser(interaction.user.id);
 
   if (existingTicket) {
@@ -205,7 +231,7 @@ async function createTicket(interaction, reason) {
     name: channelName,
     type: ChannelType.GuildText,
     parent: category?.id,
-    topic: `Тикет пользователя ${interaction.user.tag}. Причина: ${reason || 'Не указана'}`,
+    topic: `Тикет пользователя ${interaction.user.tag}. Приоритет: ${priorityLabel(options.priority)}. Причина: ${reason || 'Не указана'}`,
     permissionOverwrites,
   });
 
@@ -214,6 +240,8 @@ async function createTicket(interaction, reason) {
     username: interaction.user.tag,
     channelId: channel.id,
     reason,
+    templateId: options.templateId || 'other',
+    priority: options.priority || 'normal',
   });
 
   const ticketEmbed = new EmbedBuilder()
@@ -225,6 +253,7 @@ async function createTicket(interaction, reason) {
     )
     .addFields(
       { name: 'Статус', value: 'Открыт', inline: true },
+      { name: 'Приоритет', value: priorityLabel(ticket.priority), inline: true },
       { name: 'Создал', value: `${interaction.user}`, inline: true }
     )
     .setFooter({ text: 'ServerCore • Ticket System' })
@@ -243,7 +272,8 @@ async function createTicket(interaction, reason) {
       { name: 'Тикет', value: `#${ticket.id}`, inline: true },
       { name: 'Пользователь', value: `${interaction.user.tag}`, inline: true },
       { name: 'Канал', value: `${channel}`, inline: true },
-      { name: 'Причина', value: ticket.reason, inline: false }
+      { name: 'Причина', value: ticket.reason, inline: false },
+      { name: 'Приоритет', value: priorityLabel(ticket.priority), inline: true }
     )
     .setTimestamp();
 
@@ -259,7 +289,7 @@ async function createTicket(interaction, reason) {
   };
 }
 
-async function closeTicket(interaction) {
+async function closeTicket(interaction, closeReason = '') {
   const ticket = getOpenTicketByChannel(interaction.channelId);
 
   if (!ticket) {
@@ -291,6 +321,9 @@ async function closeTicket(interaction) {
 }
 
 module.exports = {
+  updateTicketRecord,
+  normalizePriority,
+  priorityLabel,
   createTicket,
   closeTicket,
   getOpenTicketByChannel,

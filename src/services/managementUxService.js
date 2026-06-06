@@ -28,6 +28,9 @@ function ensureManagementDb(db) {
   if (!db.panelRegistry || typeof db.panelRegistry !== 'object') db.panelRegistry = {};
   if (!db.onboardingProgress || typeof db.onboardingProgress !== 'object') db.onboardingProgress = {};
   if (!db.shopDeals || typeof db.shopDeals !== 'object') db.shopDeals = {};
+  if (!Array.isArray(db.purchaseHistory)) db.purchaseHistory = [];
+  if (!Array.isArray(db.webLoginLog)) db.webLoginLog = [];
+  if (!db.automodRules || typeof db.automodRules !== 'object') db.automodRules = {};
   return db;
 }
 
@@ -45,7 +48,7 @@ function getTicketTemplate(id) {
 
 function recordEconomy(userId, username, type, amount, meta = {}) {
   const db = ensureManagementDb(readDatabase());
-  db.economyHistory.push({
+  const entry = {
     id: db.economyHistory.length + 1,
     userId,
     username,
@@ -53,8 +56,13 @@ function recordEconomy(userId, username, type, amount, meta = {}) {
     amount: Number(amount || 0),
     meta,
     createdAt: new Date().toISOString()
-  });
-  db.economyHistory = db.economyHistory.slice(-1000);
+  };
+  db.economyHistory.push(entry);
+  db.economyHistory = db.economyHistory.slice(-1500);
+  if (type === 'purchase') {
+    db.purchaseHistory.push({ ...entry, purchaseId: db.purchaseHistory.length + 1 });
+    db.purchaseHistory = db.purchaseHistory.slice(-1000);
+  }
   writeDatabase(db);
 }
 
@@ -136,6 +144,51 @@ function applyDailyDealPrice(item, items = []) {
   return { price, originalPrice: item.price, isDailyDeal: true, discountPercent: deal.discountPercent };
 }
 
+function getPurchaseHistory(userId = null, limit = 50) {
+  const db = ensureManagementDb(readDatabase());
+  let rows = db.purchaseHistory || [];
+  if (userId) rows = rows.filter(row => row.userId === userId);
+  return rows.slice(-limit).reverse();
+}
+
+function recordWebLogin({ ip = 'unknown', ok = false, userAgent = '', reason = '' } = {}) {
+  const db = ensureManagementDb(readDatabase());
+  db.webLoginLog.push({
+    id: db.webLoginLog.length + 1,
+    ip,
+    ok: Boolean(ok),
+    reason,
+    userAgent: String(userAgent || '').slice(0, 240),
+    createdAt: new Date().toISOString()
+  });
+  db.webLoginLog = db.webLoginLog.slice(-500);
+  writeDatabase(db);
+}
+
+function getWebLoginLog(limit = 100) {
+  const db = ensureManagementDb(readDatabase());
+  return (db.webLoginLog || []).slice(-limit).reverse();
+}
+
+function getAutomodRules() {
+  const db = ensureManagementDb(readDatabase());
+  return {
+    links: { enabled: true, action: 'delete', warn: true, ...(db.automodRules.links || {}) },
+    caps: { enabled: true, action: 'delete', warn: true, ...(db.automodRules.caps || {}) },
+    spam: { enabled: true, action: 'delete', warn: true, ...(db.automodRules.spam || {}) },
+    mentions: { enabled: true, action: 'delete', warn: true, ...(db.automodRules.mentions || {}) },
+    words: { enabled: true, action: 'delete', warn: true, ...(db.automodRules.words || {}) }
+  };
+}
+
+function saveAutomodRules(rules = {}) {
+  const db = ensureManagementDb(readDatabase());
+  db.automodRules = { ...getAutomodRules(), ...rules };
+  writeDatabase(db);
+  return db.automodRules;
+}
+
+
 module.exports = {
   DEFAULT_TICKET_TEMPLATES,
   PANEL_DEFINITIONS,
@@ -150,5 +203,10 @@ module.exports = {
   markOnboarding,
   getOnboardingProgress,
   getDailyDeal,
-  applyDailyDealPrice
+  applyDailyDealPrice,
+  getPurchaseHistory,
+  recordWebLogin,
+  getWebLoginLog,
+  getAutomodRules,
+  saveAutomodRules
 };

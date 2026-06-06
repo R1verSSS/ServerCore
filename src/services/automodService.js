@@ -2,6 +2,7 @@ const { PermissionFlagsBits } = require('discord.js');
 const { readDatabase, writeDatabase } = require('./dataStore');
 const { getSettings } = require('./settingsService');
 const { sendLog } = require('./logService');
+const { getAutomodRules } = require('./managementUxService');
 
 const spamCache = new Map();
 
@@ -27,12 +28,14 @@ async function handleAutomodMessage(message) {
   if (!settings.automodEnabled) return { ok: true };
   if (message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return { ok: true };
 
+  const rules = getAutomodRules();
   const reasons = [];
-  if (settings.automodBlockLinks && containsLink(message.content)) reasons.push('запрещенная ссылка');
-  if (settings.automodAntiCaps && capsRatio(message.content) > 0.75) reasons.push('слишком много CAPS');
-  if ((message.mentions.users.size || 0) >= Number(settings.automodMaxMentions || 6)) reasons.push('массовые упоминания');
+  const logOnly = [];
+  if (settings.automodBlockLinks && rules.links?.enabled !== false && containsLink(message.content)) (rules.links?.action === 'log' ? logOnly : reasons).push('запрещенная ссылка');
+  if (settings.automodAntiCaps && rules.caps?.enabled !== false && capsRatio(message.content) > 0.75) (rules.caps?.action === 'log' ? logOnly : reasons).push('слишком много CAPS');
+  if (rules.mentions?.enabled !== false && (message.mentions.users.size || 0) >= Number(settings.automodMaxMentions || 6)) (rules.mentions?.action === 'log' ? logOnly : reasons).push('массовые упоминания');
   const forbiddenWord = hasForbiddenWord(message.content, settings.automodForbiddenWords || []);
-  if (forbiddenWord) reasons.push(`запрещенное слово: ${forbiddenWord}`);
+  if (rules.words?.enabled !== false && forbiddenWord) (rules.words?.action === 'log' ? logOnly : reasons).push(`запрещенное слово: ${forbiddenWord}`);
 
   if (settings.automodAntiSpam) {
     const key = `${message.guild.id}:${message.author.id}`;
@@ -41,12 +44,12 @@ async function handleAutomodMessage(message) {
     recent.push({ at: now, text: message.content });
     spamCache.set(key, recent);
     const sameCount = recent.filter(item => item.text === message.content).length;
-    if (recent.length >= 7 || sameCount >= 4) reasons.push('спам сообщениями');
+    if (rules.spam?.enabled !== false && (recent.length >= 7 || sameCount >= 4)) (rules.spam?.action === 'log' ? logOnly : reasons).push('спам сообщениями');
   }
 
-  if (!reasons.length) return { ok: true };
+  if (!reasons.length && !logOnly.length) return { ok: true };
 
-  try { await message.delete(); } catch (_) {}
+  if (reasons.length) { try { await message.delete(); } catch (_) {} }
 
   const db = readDatabase();
   if (!db.automodLogs) db.automodLogs = [];
@@ -56,20 +59,25 @@ async function handleAutomodMessage(message) {
     username: message.author.username,
     channelId: message.channel.id,
     channelName: message.channel.name,
-    reasons,
+    reasons: reasons.length ? reasons : logOnly.map(x => `log: ${x}`),
     content: message.content.slice(0, 500),
     createdAt: new Date().toISOString(),
   });
   writeDatabase(db);
 
-  await sendLog(message.guild, '🛡 AutoMod', `${message.author} — ${reasons.join(', ')}\nКанал: ${message.channel}`, 0xED4245);
+  const effectiveReasons = reasons.length ? reasons : logOnly;
+  await sendLog(message.guild, '🛡 AutoMod', `${message.author} — ${effectiveReasons.join(', ')}\nКанал: ${message.channel}`, reasons.length ? 0xED4245 : 0xFEE75C);
 
-  try {
-    const sent = await message.channel.send(`${message.author}, сообщение удалено: ${reasons.join(', ')}.`);
-    setTimeout(() => sent.delete().catch(() => {}), 8000);
-  } catch (_) {}
+  if (reasons.length) {
+    try {
+      const sent = await message.channel.send(`${message.author}, сообщение удалено: ${reasons.join(', ')}.`);
+      setTimeout(() => sent.delete().catch(() => {}), 8000);
+    } catch (_) {}
+    return { ok: false, reasons };
+  }
 
-  return { ok: false, reasons };
+  return { ok: true, reasons: logOnly, loggedOnly: true };
+
 }
 
 module.exports = { handleAutomodMessage };

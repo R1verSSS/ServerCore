@@ -1,6 +1,7 @@
 const { ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { buildMainMenuPayload } = require('./userMenuService');
-const { getOnboardingProgress, markOnboarding } = require('./managementUxService');
+const { getOnboardingProgress, markOnboarding, recordEconomy } = require('./managementUxService');
+const { updateUser } = require('./dataStore');
 
 function findChannel(guild, name) {
   return guild?.channels.cache.find(ch => ch.type === ChannelType.GuildText && ch.name === name) || null;
@@ -41,7 +42,7 @@ function buildWelcomePayload(member) {
 }
 
 function buildOnboardingStepPayload(interaction, step) {
-  markOnboarding(interaction.user.id, step);
+  const progress = markOnboarding(interaction.user.id, step);
   const messages = {
     rules: '📜 Правила обычно находятся в канале `📜・правила`. Прочитай их перед активностью.',
     roles: '✅ Роли можно выбрать через канал `✅・получить-роли` или команду `/roles`.',
@@ -49,7 +50,26 @@ function buildOnboardingStepPayload(interaction, step) {
     daily: '🎁 Получи ежедневную награду командой `/daily`.',
     profile: '👤 Профиль доступен через `/profile`, `/rank` и `/profilecard`.'
   };
-  return { content: messages[step] || '✅ Шаг отмечен.', embeds: [], components: [] };
+  const required = ['rules','roles','menu','daily','profile'];
+  const done = required.every(key => progress.steps?.[key]);
+  let rewardText = '';
+  if (done && !progress.rewardedAt) {
+    const rewardCoins = Number(process.env.ONBOARDING_REWARD_COINS || 100);
+    updateUser(interaction.user.id, user => {
+      user.username = interaction.user.username;
+      user.coins = (user.coins || 0) + rewardCoins;
+      return user;
+    });
+    recordEconomy(interaction.user.id, interaction.user.username, 'onboarding_reward', rewardCoins, { steps: required });
+    const refreshed = markOnboarding(interaction.user.id, 'rewarded');
+    refreshed.rewardedAt = new Date().toISOString();
+    const { readDatabase, writeDatabase } = require('./dataStore');
+    const db = readDatabase();
+    db.onboardingProgress[interaction.user.id] = refreshed;
+    writeDatabase(db);
+    rewardText = `\n\n🎁 Чек-лист завершен! Начислена награда: **${rewardCoins} монет**.`;
+  }
+  return { content: (messages[step] || '✅ Шаг отмечен.') + rewardText, embeds: [], components: [] };
 }
 
 async function sendWelcome(member) {

@@ -4,6 +4,13 @@ const { buildUnlockedText } = require('../services/achievementService');
 const { createTicket } = require('../services/ticketService');
 const { getTicketTemplate } = require('../services/managementUxService');
 
+const PRIORITY_CHOICES = [
+  { name: 'Низкий', value: 'low' },
+  { name: 'Обычный', value: 'normal' },
+  { name: 'Высокий', value: 'high' },
+  { name: 'Срочный', value: 'urgent' }
+];
+
 const TEMPLATE_CHOICES = [
   { name: '🛠️ Тех. проблема', value: 'tech' },
   { name: '🚨 Жалоба', value: 'complaint' },
@@ -26,6 +33,13 @@ module.exports = {
     )
     .addStringOption(option =>
       option
+        .setName('приоритет')
+        .setDescription('Насколько срочное обращение')
+        .setRequired(false)
+        .addChoices(...PRIORITY_CHOICES)
+    )
+    .addStringOption(option =>
+      option
         .setName('причина')
         .setDescription('Кратко опиши причину обращения')
         .setRequired(false)
@@ -37,9 +51,10 @@ module.exports = {
 
     const templateId = interaction.options.getString('шаблон') || 'other';
     const template = getTicketTemplate(templateId);
+    const priority = interaction.options.getString('приоритет') || 'normal';
     const reasonText = interaction.options.getString('причина') || template?.prompt || 'Не указана';
     const reason = `${template?.emoji || '🎫'} ${template?.label || 'Другое'}: ${reasonText}`.slice(0, 240);
-    const result = await createTicket(interaction, reason);
+    const result = await createTicket(interaction, reason, { templateId, priority });
 
     if (!result.ok && result.reason === 'already_open') {
       const channelText = result.channel ? `${result.channel}` : 'старый канал не найден';
@@ -64,6 +79,7 @@ module.exports = {
       .addFields({ name: 'Причина', value: result.ticket.reason, inline: false })
       .setFooter({ text: 'ServerCore • Ticket System' });
 
+    embed.addFields({ name: 'Приоритет', value: result.ticket.priority || 'normal', inline: true });
     await safeEdit(interaction, { embeds: [embed] });
   },
 };

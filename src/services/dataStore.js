@@ -70,6 +70,9 @@ const EMPTY_DB = {
   panelRegistry: {},
   onboardingProgress: {},
   shopDeals: {},
+  purchaseHistory: [],
+  webLoginLog: [],
+  automodRules: {},
   productionChecks: [],
   tempVoiceSettings: {
     createChannelName: '➕・создать-комнату',
@@ -128,6 +131,9 @@ function mergeDefaults(db) {
   if (!normalized.panelRegistry || typeof normalized.panelRegistry !== 'object') normalized.panelRegistry = {};
   if (!normalized.onboardingProgress || typeof normalized.onboardingProgress !== 'object') normalized.onboardingProgress = {};
   if (!normalized.shopDeals || typeof normalized.shopDeals !== 'object') normalized.shopDeals = {};
+  if (!Array.isArray(normalized.purchaseHistory)) normalized.purchaseHistory = [];
+  if (!Array.isArray(normalized.webLoginLog)) normalized.webLoginLog = [];
+  if (!normalized.automodRules || typeof normalized.automodRules !== 'object') normalized.automodRules = {};
   if (!Array.isArray(normalized.productionChecks)) normalized.productionChecks = [];
   if (!normalized.tempVoiceRooms || typeof normalized.tempVoiceRooms !== 'object') normalized.tempVoiceRooms = {};
   if (!normalized.tempVoiceSettings || typeof normalized.tempVoiceSettings !== 'object') {

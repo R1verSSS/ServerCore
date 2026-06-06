@@ -29,9 +29,9 @@ const { buildShopPanel } = require('../services/shopPanel');
 const { buildPublicCommandsPanel, buildModerationCommandsPanel, commandsHtml } = require('../services/commandReferenceService');
 const { buildModuleStatus, setModuleEnabled } = require('../services/moduleService');
 const { listChannelRules, setChannelRule } = require('../services/channelRulesService');
+const { updateTicketRecord, priorityLabel } = require('../services/ticketService');
 const { buildProductionReport } = require('../services/productionCheckService');
-const { getEconomyHistory, getTicketTemplates, getPanelRegistry, registerPanelPublish, getRoleUsage, getDailyDeal } = require('../services/managementUxService');
-const { buildUpdateReport, getChangelog, readErrorLog, clearErrorLog, getAdminOperations, runScenario } = require('../services/adminOpsService');
+const { getEconomyHistory, getTicketTemplates, getPanelRegistry, registerPanelPublish, getRoleUsage, getDailyDeal, getPurchaseHistory, recordWebLogin, getWebLoginLog, getAutomodRules, saveAutomodRules } = require('../services/managementUxService');
 
 const started = { value: false };
 const loginAttempts = new Map();
@@ -101,11 +101,11 @@ function getStats(client) {
 }
 function layout(title, body, message = '', warning = '') {
   const navGroups = [
-    { title: 'Главное', icon: '🏠', links: [['/', 'Дашборд'], ['/quick-actions', 'Быстрые действия'], ['/update-center', 'Обновления'], ['/changelog', 'Changelog'], ['/modules', 'Модули'], ['/panels', 'Панели Discord'], ['/project', 'Проект'], ['/health', 'Health'], ['/network', 'Сеть'], ['/docs', 'Документация']] },
-    { title: 'Пользователи', icon: '👥', links: [['/users', 'Участники'], ['/profiles', 'Профили'], ['/economy', 'Экономика'], ['/economy-history', 'История экономики'], ['/shop-admin', 'Магазин'], ['/shop-deals', 'Скидки']] },
+    { title: 'Главное', icon: '🏠', links: [['/', 'Дашборд'], ['/quick-actions', 'Быстрые действия'], ['/modules', 'Модули'], ['/panels', 'Панели Discord'], ['/project', 'Проект'], ['/health', 'Health'], ['/network', 'Сеть'], ['/docs', 'Документация']] },
+    { title: 'Пользователи', icon: '👥', links: [['/users', 'Участники'], ['/profiles', 'Профили'], ['/economy', 'Экономика'], ['/economy-history', 'История экономики'], ['/purchase-history', 'Покупки'], ['/shop-admin', 'Магазин'], ['/shop-deals', 'Скидки']] },
     { title: 'Активности', icon: '🎮', links: [['/onboarding', 'Онбординг'], ['/events', 'Ивенты'], ['/voice', 'Voice'], ['/suggestions-panel', 'Предложения'], ['/notifications', 'Уведомления'], ['/clans', 'Кланы'], ['/applications', 'Заявки'], ['/tournaments', 'Турниры'], ['/season', 'Сезон']] },
-    { title: 'Модерация', icon: '🛡️', links: [['/tickets', 'Тикеты'], ['/ticket-templates', 'Шаблоны тикетов'], ['/moderation', 'Модерация'], ['/errors', 'Ошибки'], ['/channel-rules', 'Правила каналов'], ['/access', 'Доступ и роли'], ['/automod', 'AutoMod'], ['/logs', 'Логи'], ['/audit', 'Audit']] },
-    { title: 'Система', icon: '⚙️', links: [['/settings', 'Настройки'], ['/scenarios', 'Сценарии'], ['/panel-center', 'Центр панелей'], ['/roles', 'Роли'], ['/maintenance', 'Обслуживание'], ['/production', 'Production-check'], ['/hosting', 'Хостинг'], ['/backups', 'Бэкапы'], ['/integrations', 'Интеграции'], ['/commands', 'Команды']] },
+    { title: 'Модерация', icon: '🛡️', links: [['/tickets', 'Тикеты'], ['/ticket-templates', 'Шаблоны тикетов'], ['/moderation', 'Модерация'], ['/channel-rules', 'Правила каналов'], ['/access', 'Доступ и роли'], ['/automod', 'AutoMod'], ['/automod-rules', 'AutoMod Rules'], ['/logs', 'Логи'], ['/audit', 'Audit']] },
+    { title: 'Система', icon: '⚙️', links: [['/settings', 'Настройки'], ['/web-logins', 'Входы'], ['/vps', 'VPS'], ['/panel-center', 'Центр панелей'], ['/roles', 'Роли'], ['/maintenance', 'Обслуживание'], ['/production', 'Production-check'], ['/hosting', 'Хостинг'], ['/backups', 'Бэкапы'], ['/integrations', 'Интеграции'], ['/commands', 'Команды']] },
   ];
   const nav = navGroups.map(group => `<details class="nav-group" open><summary>${group.icon} ${group.title}</summary>${group.links.map(([href, label]) => `<a href="${href}">${label}</a>`).join('')}</details>`).join('');
   return `<!doctype html>
@@ -181,7 +181,7 @@ function commandsPage() {
     ['Сообщество', ['/rep','/reputation','/achievements','/badges','/clan']],
     ['Поддержка и модерация', ['/ticket','/close','/warn','/warnremove','/warnings','/cases','/case','/note','/appeal','/clear','/mute','/unmute','/kick','/ban','/modpanel']],
     ['Игры и активность', ['/game','/gamepanel','/quest','/event','/tournament','/season','/lfg','/voice']],
-    ['Администрирование', ['/settings','/automod','/apply','/applications','/application','/integration','/hosting-check','/update-check','/production-check','/maintenance','/backup','/export']]
+    ['Администрирование', ['/settings','/automod','/apply','/applications','/application','/integration','/hosting-check','/vps-check','/maintenance','/backup','/export']]
   ];
   return groups.map(([name, cmds]) => `<div class="card"><h3>${escapeHtml(name)}</h3>${cmds.map(c => `<span class="pill">${c}</span>`).join('')}</div>`).join('');
 }
@@ -239,10 +239,12 @@ function startWebPanel(client) {
       if (rec.count >= PANEL_LOGIN_LIMIT) { rec.lockedUntil = Date.now() + PANEL_LOCK_MINUTES * 60000; rec.count = 0; }
       loginAttempts.set(ip, rec);
       addAudit('web_login_failed', { name: ip }, { count: rec.count, source: 'web' });
+      recordWebLogin({ ip, ok: false, reason: 'bad_password', userAgent: req.headers['user-agent'] || '' });
       return res.status(401).send(loginPage('Неверный пароль'));
     }
     loginAttempts.delete(ip);
     addAudit('web_login_success', { name: ip }, { source: 'web' });
+    recordWebLogin({ ip, ok: true, reason: 'success', userAgent: req.headers['user-agent'] || '' });
     res.setHeader('Set-Cookie', `servercore_session=${encodeURIComponent(config.token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800`);
     res.redirect('/');
   });
@@ -300,31 +302,6 @@ function startWebPanel(client) {
     const rows = report.checks.map(c => `<tr><td>${c.ok ? '<span class="status-ok">✅ OK</span>' : '<span class="status-warn">⚠️ Проверить</span>'}</td><td>${escapeHtml(c.label)}</td><td>${escapeHtml(c.hint || '')}</td></tr>`).join('');
     const body = `<div class="grid"><div class="card"><h2>🚀 Production-check</h2><div class="stat">${report.okCount}/${report.total}</div><p class="muted">Финальная проверка после обновлений и redeploy.</p></div><div class="card"><h2>💾 База</h2><p><b>Драйвер:</b> ${escapeHtml(report.storage?.driver || 'unknown')}</p><p><b>Backup:</b> ${Number(report.backups || 0)}</p></div><div class="card"><h2>Команда Discord</h2><p class="code">/production-check</p></div></div><div class="card section wide"><h2>Проверки</h2><table><tr><th>Статус</th><th>Пункт</th><th>Подсказка</th></tr>${rows}</table></div>`;
     res.send(layout('Production-check', body, req.query.message));
-  });
-
-  app.get('/update-center', (req, res) => {
-    const report = buildUpdateReport();
-    const rows = report.checks.map(c => `<tr><td>${c.ok ? '<span class="status-ok">✅ OK</span>' : '<span class="status-warn">⚠️ Проверить</span>'}</td><td>${escapeHtml(c.label)}</td><td>${escapeHtml(c.hint || '')}</td></tr>`).join('');
-    const ops = getAdminOperations(8).map(op => `<tr><td>${escapeHtml(op.createdAt)}</td><td>${escapeHtml(op.action)}</td><td><div class="code small">${escapeHtml(JSON.stringify(op.details || {}, null, 2)).slice(0, 600)}</div></td></tr>`).join('');
-    const body = `<div class="grid"><div class="card"><h2>🔄 Update-center</h2><div class="stat">${report.okCount}/${report.total}</div><p class="muted">Проверка состояния после обновлений, redeploy и регистрации slash-команд.</p></div><div class="card"><h2>Версия</h2><div class="stat">${escapeHtml(report.package.version || 'unknown')}</div><p class="muted">Последний deploy: ${escapeHtml(report.marker?.deployedAt || 'не найден')}</p></div><div class="card"><h2>Backup</h2><p><b>Последний:</b> ${escapeHtml(report.latestBackup?.name || 'нет')}</p><p><b>Всего:</b> ${report.backups.length}</p><form method="post" action="/actions/backup-create"><input name="name" value="before-update-${Date.now()}"/><button>Создать backup перед обновлением</button></form></div></div><div class="card section wide"><h2>Проверки</h2><table><tr><th>Статус</th><th>Пункт</th><th>Подсказка</th></tr>${rows}</table></div><div class="card section wide"><h2>Последние админ-сценарии</h2><table><tr><th>Дата</th><th>Действие</th><th>Детали</th></tr>${ops || '<tr><td colspan="3">Пока нет операций.</td></tr>'}</table></div>`;
-    res.send(layout('Update-center', body, req.query.message, req.query.warning));
-  });
-
-  app.get('/changelog', (req, res) => {
-    const items = getChangelog().map(entry => `<div class="card section"><h2>v${escapeHtml(entry.version)} — ${escapeHtml(entry.title)}</h2><ul>${entry.items.map(i => `<li>${escapeHtml(i)}</li>`).join('')}</ul></div>`).join('');
-    res.send(layout('Changelog', `<div class="card"><h2>📌 Журнал изменений</h2><p class="muted">Краткая история последних стабильных доработок ServerCore.</p></div>${items}`, req.query.message));
-  });
-
-  app.get('/errors', (req, res) => {
-    const lines = readErrorLog(80);
-    const rows = lines.map(line => `<tr><td><div class="code small">${escapeHtml(line).slice(0, 1500)}</div></td></tr>`).join('');
-    const body = `<div class="grid-2"><div class="card"><h2>🐞 Ошибки</h2><p class="muted">Последние строки из logs/error.log. Полезно после redeploy, кнопок, команд и веб-действий.</p></div><div class="card"><h2>Действия</h2><form method="post" action="/actions/errors-clear" onsubmit="return confirm('Очистить error.log?')"><button class="danger">Очистить ошибки</button></form></div></div><div class="card section wide"><table><tr><th>Строка лога</th></tr>${rows || '<tr><td>Ошибок пока нет.</td></tr>'}</table></div>`;
-    res.send(layout('Ошибки', body, req.query.message));
-  });
-
-  app.get('/scenarios', (req, res) => {
-    const body = `<div class="card"><h2>🧭 Сценарии администратора</h2><p class="muted">Готовые безопасные действия для обслуживания сервера. Часть сценариев создает backup, часть помогает проверить состояние проекта.</p></div><div class="grid-2 section"><div class="card"><h3>Перед обновлением</h3><p class="muted">Создает backup с меткой predeploy.</p><form method="post" action="/actions/scenario"><input type="hidden" name="type" value="predeploy-backup"/><button>Создать predeploy backup</button></form></div><div class="card"><h3>Стабильная точка</h3><p class="muted">Создает backup стабильной версии после успешной проверки.</p><form method="post" action="/actions/scenario"><input type="hidden" name="type" value="stable-backup"/><button>Создать stable backup</button></form></div><div class="card"><h3>После обновления</h3><p class="muted">Проверяет update-center и подсказывает, нужно ли npm run deploy.</p><form method="post" action="/actions/scenario"><input type="hidden" name="type" value="post-update-check"/><button>Запустить post-update check</button></form></div><div class="card"><h3>Панели Discord</h3><p class="muted">Напоминание проверить /panel-center и переопубликовать панели.</p><form method="post" action="/actions/scenario"><input type="hidden" name="type" value="mark-panels-check"/><button>Отметить проверку панелей</button></form></div></div>`;
-    res.send(layout('Сценарии', body, req.query.message, req.query.warning));
   });
 
   app.get('/access', (req, res) => {
@@ -462,11 +439,13 @@ function startWebPanel(client) {
     const recentTickets = related.tickets.slice(-5).reverse().map(t => `<tr><td>#${t.id}</td><td>${statusBadge(t.status)}</td><td>${escapeHtml(t.reason || '-')}</td><td>${escapeHtml(t.createdAt || '-')}</td></tr>`).join('');
     const recentApps = related.applications.slice(-5).reverse().map(a => `<tr><td>#${a.id}</td><td>${statusBadge(a.status)}</td><td>${escapeHtml(a.type || '-')}</td><td>${escapeHtml(a.createdAt || '-')}</td></tr>`).join('');
     const recentCases = related.cases.slice(-5).reverse().map(c => `<tr><td>#${c.id}</td><td>${escapeHtml(c.type || c.action || '-')}</td><td>${escapeHtml(c.reason || '-')}</td><td>${statusBadge(c.status || 'open')}</td></tr>`).join('');
+    const recentEconomy = getEconomyHistory(user.discordId, 8).map(e => `<tr><td>${escapeHtml(e.type)}</td><td>${Number(e.amount || 0)}</td><td>${escapeHtml(e.meta?.itemName || e.meta?.itemId || '-')}</td><td>${escapeHtml(e.createdAt || '')}</td></tr>`).join('');
+    const recentPurchases = getPurchaseHistory(user.discordId, 8).map(e => `<tr><td>#${e.purchaseId || e.id}</td><td>${escapeHtml(e.meta?.itemName || e.meta?.itemId || '-')}</td><td>${Number(e.amount || 0)}</td><td>${escapeHtml(e.createdAt || '')}</td></tr>`).join('');
     const body = `<div class="card"><h2>👤 ${escapeHtml(user.username)}</h2><p class="muted">ID: ${escapeHtml(user.discordId)}</p><div class="metric-row"><div class="metric"><div class="muted">Уровень</div><b>${user.level || 1}</b></div><div class="metric"><div class="muted">XP</div><b>${user.xp || 0}</b></div><div class="metric"><div class="muted">Монеты</div><b>${user.coins || 0}</b></div><div class="metric"><div class="muted">Репутация</div><b>${user.reputation || 0}</b></div><div class="metric"><div class="muted">Предупреждения</div><b>${related.activeWarnings.length}</b></div><div class="metric"><div class="muted">Battle Pass XP</div><b>${user.seasonXp || 0}</b></div></div><div class="tabs"><a class="tab" href="#manage">Управление</a><a class="tab" href="#profile">Оформление</a><a class="tab" href="#warnings">Предупреждения</a><a class="tab" href="#history">История</a></div></div>
     <div class="grid-2 section"><div id="manage" class="card"><h2>🛠 Управление</h2><form method="post" action="/actions/user-adjust"><input type="hidden" name="userId" value="${escapeHtml(user.discordId)}"/><div class="inline"><select name="field"><option value="xp">XP</option><option value="coins">Монеты</option><option value="reputation">Репутация</option><option value="seasonXp">Сезонный XP</option><option value="messages">Сообщения</option><option value="level">Уровень</option></select><input name="amount" type="number" value="100"/></div><select name="mode"><option value="add">Добавить</option><option value="set">Установить точное значение</option><option value="subtract">Вычесть</option></select><button>Применить</button></form><hr/><form method="post" action="/actions/user-achievement"><input type="hidden" name="userId" value="${escapeHtml(user.discordId)}"/><input name="achievement" placeholder="achievement_id, например custom_helper"/><button>Выдать достижение/бейдж</button></form><hr/><form method="post" action="/actions/user-reset-daily"><input type="hidden" name="userId" value="${escapeHtml(user.discordId)}"/><button class="gray">Сбросить cooldown /daily</button></form></div>
     <div id="profile" class="card"><h2>🎨 Профиль</h2><table><tr><th>Титул</th><td>${escapeHtml(p.title || 'Участник сервера')}</td></tr><tr><th>О себе</th><td>${escapeHtml(p.about || '-')}</td></tr><tr><th>Цвет / фон</th><td>${escapeHtml(p.color || 'blurple')} / ${escapeHtml(p.background || 'dark')}</td></tr><tr><th>Главный бейдж</th><td>${escapeHtml(p.mainBadge || '-')}</td></tr><tr><th>Инвентарь</th><td>${escapeHtml(inv)}</td></tr><tr><th>Достижения</th><td>${escapeHtml(achievements)}</td></tr></table><form method="post" action="/actions/user-profile-save" class="section"><input type="hidden" name="userId" value="${escapeHtml(user.discordId)}"/><input name="title" value="${escapeHtml(p.title || '')}" placeholder="Титул"/><textarea name="about" placeholder="О себе">${escapeHtml(p.about || '')}</textarea><div class="inline"><input name="color" value="${escapeHtml(p.color || 'blurple')}"/><input name="background" value="${escapeHtml(p.background || 'dark')}"/><input name="mainBadge" value="${escapeHtml(p.mainBadge || '')}"/></div><button>Сохранить оформление</button></form></div></div>
     <div id="warnings" class="card section"><h2>⚠️ Предупреждения</h2><div class="table-wrap"><table><tr><th>ID</th><th>Причина</th><th>Модератор</th><th>Дата</th><th>Статус</th><th>Действие</th></tr>${related.warnings.map(w => `<tr><td>#${w.id}</td><td>${escapeHtml(w.reason)}</td><td>${escapeHtml(w.moderatorName || w.moderatorId || '-')}</td><td>${escapeHtml(w.createdAt || '-')}</td><td>${statusBadge(w.active === false ? 'closed' : 'active')}</td><td>${w.active === false ? '-' : `<form method="post" action="/actions/warning-deactivate"><input type="hidden" name="id" value="${w.id}"/><input type="hidden" name="returnTo" value="/user/${escapeHtml(user.discordId)}"/><button class="danger">Снять</button></form>`}</td></tr>`).join('') || '<tr><td colspan="6">Предупреждений нет.</td></tr>'}</table></div></div>
-    <div id="history" class="grid-2 section"><div class="card"><h2>🎫 Тикеты</h2><table><tr><th>ID</th><th>Статус</th><th>Причина</th><th>Дата</th></tr>${recentTickets || '<tr><td colspan="4">Нет тикетов.</td></tr>'}</table></div><div class="card"><h2>📨 Заявки</h2><table><tr><th>ID</th><th>Статус</th><th>Тип</th><th>Дата</th></tr>${recentApps || '<tr><td colspan="4">Нет заявок.</td></tr>'}</table></div><div class="card"><h2>🛡 Дела</h2><table><tr><th>ID</th><th>Тип</th><th>Причина</th><th>Статус</th></tr>${recentCases || '<tr><td colspan="4">Нет дел.</td></tr>'}</table></div><div class="card"><h2>📅 Ивенты</h2><table><tr><th>ID</th><th>Название</th><th>Дата</th></tr>${related.events.slice(-5).reverse().map(e => `<tr><td>#${e.id}</td><td>${escapeHtml(e.title)}</td><td>${escapeHtml(e.date || '-')}</td></tr>`).join('') || '<tr><td colspan="3">Нет участий.</td></tr>'}</table></div></div>`;
+    <div id="history" class="grid-2 section"><div class="card"><h2>🎫 Тикеты</h2><table><tr><th>ID</th><th>Статус</th><th>Причина</th><th>Дата</th></tr>${recentTickets || '<tr><td colspan="4">Нет тикетов.</td></tr>'}</table></div><div class="card"><h2>📨 Заявки</h2><table><tr><th>ID</th><th>Статус</th><th>Тип</th><th>Дата</th></tr>${recentApps || '<tr><td colspan="4">Нет заявок.</td></tr>'}</table></div><div class="card"><h2>🛡 Дела</h2><table><tr><th>ID</th><th>Тип</th><th>Причина</th><th>Статус</th></tr>${recentCases || '<tr><td colspan="4">Нет дел.</td></tr>'}</table></div><div class="card"><h2>📅 Ивенты</h2><table><tr><th>ID</th><th>Название</th><th>Дата</th></tr>${related.events.slice(-5).reverse().map(e => `<tr><td>#${e.id}</td><td>${escapeHtml(e.title)}</td><td>${escapeHtml(e.date || '-')}</td></tr>`).join('') || '<tr><td colspan="3">Нет участий.</td></tr>'}</table></div><div class="card"><h2>💰 Операции</h2><table><tr><th>Тип</th><th>Сумма</th><th>Детали</th><th>Дата</th></tr>${recentEconomy || '<tr><td colspan="4">Нет операций.</td></tr>'}</table></div><div class="card"><h2>🧾 Покупки</h2><table><tr><th>ID</th><th>Товар</th><th>Сумма</th><th>Дата</th></tr>${recentPurchases || '<tr><td colspan="4">Нет покупок.</td></tr>'}</table></div></div>`;
     res.send(layout(`Участник ${user.username}`, body, req.query.message));
   });
 
@@ -547,9 +526,41 @@ function startWebPanel(client) {
   });
 
   app.get('/tickets', (req, res) => {
-    const tickets = Object.values(readDatabase().tickets || {}).sort((a, b) => Number(b.id) - Number(a.id));
-    const rows = tickets.map(ticket => `<tr><td>#${ticket.id}</td><td>${escapeHtml(ticket.status)}</td><td>${escapeHtml(ticket.username || ticket.userId)}</td><td>${escapeHtml(ticket.reason || '-')}</td><td>${escapeHtml(ticket.createdAt || '-')}</td><td><div class="actions"><form method="post" action="/actions/ticket-close"><input type="hidden" name="id" value="${ticket.id}"/><button class="danger">Закрыть</button></form><form method="post" action="/actions/ticket-open"><input type="hidden" name="id" value="${ticket.id}"/><button class="green">Открыть</button></form></div></td></tr>`).join('');
-    res.send(layout('Тикеты', `<div class="card wide"><h2>🎫 Тикеты</h2><p class="muted">Закрытие через веб-панель меняет статус в базе. Если канал тикета еще существует, бот попробует удалить его.</p><table><tr><th>ID</th><th>Статус</th><th>Пользователь</th><th>Причина</th><th>Создан</th><th>Действие</th></tr>${rows || '<tr><td colspan="6">Тикетов пока нет.</td></tr>'}</table></div>`, req.query.message));
+    let tickets = Object.values(readDatabase().tickets || {}).sort((a, b) => Number(b.id) - Number(a.id));
+    const q = queryValue(req, 'q').toLowerCase();
+    const filter = queryValue(req, 'filter', 'all');
+    if (q) tickets = tickets.filter(t => containsText(t.username, q) || containsText(t.userId, q) || containsText(t.reason, q) || containsText(t.id, q));
+    if (filter !== 'all') tickets = tickets.filter(t => String(t.status || 'open') === filter || String(t.priority || 'normal') === filter);
+    const pg = paginate(tickets, req, 25);
+    const toolbar = tableToolbar('/tickets', req, [['new','Новые сверху']], [['all','Все'],['open','Открытые'],['waiting','Ожидают'],['closed','Закрытые'],['high','Высокий приоритет'],['urgent','Срочные']]);
+    const memberOptions = getMemberOptions(getGuild(client));
+    const rows = pg.items.map(ticket => `<tr><td>#${ticket.id}<div class="small muted">${escapeHtml(ticket.templateId || 'other')}</div></td><td>${statusBadge(ticket.status || 'open')}</td><td>${statusBadge(ticket.priority || 'normal')}</td><td>${escapeHtml(ticket.username || ticket.userId)}</td><td>${escapeHtml(ticket.assignedName || ticket.assignedTo || '—')}</td><td>${escapeHtml(ticket.reason || '-')}</td><td>${escapeHtml(ticket.createdAt || '-')}</td><td><form method="post" action="/actions/ticket-update"><input type="hidden" name="id" value="${ticket.id}"/><select name="status"><option value="open" ${(ticket.status||'open')==='open'?'selected':''}>open</option><option value="waiting" ${ticket.status==='waiting'?'selected':''}>waiting</option><option value="closed" ${ticket.status==='closed'?'selected':''}>closed</option></select><select name="priority"><option value="low" ${ticket.priority==='low'?'selected':''}>low</option><option value="normal" ${(!ticket.priority||ticket.priority==='normal')?'selected':''}>normal</option><option value="high" ${ticket.priority==='high'?'selected':''}>high</option><option value="urgent" ${ticket.priority==='urgent'?'selected':''}>urgent</option></select><select name="assignedTo"><option value="">Не назначен</option>${memberOptions}</select><input name="comment" placeholder="Комментарий/причина"/><button>Сохранить</button></form><div class="actions"><form method="post" action="/actions/ticket-close"><input type="hidden" name="id" value="${ticket.id}"/><button class="danger">Закрыть</button></form><form method="post" action="/actions/ticket-open"><input type="hidden" name="id" value="${ticket.id}"/><button class="green">Открыть</button></form></div></td></tr>`).join('');
+    res.send(layout('Тикеты', `<div class="card wide"><h2>🎫 Тикеты 2.0</h2><p class="muted">Статусы, приоритеты и назначенный модератор помогают не терять обращения.</p>${toolbar}<div class="table-wrap"><table><tr><th>ID</th><th>Статус</th><th>Приоритет</th><th>Пользователь</th><th>Назначен</th><th>Причина</th><th>Создан</th><th>Управление</th></tr>${rows || '<tr><td colspan="8">Тикетов пока нет.</td></tr>'}</table></div>${pager('/tickets', req, pg.page, pg.pages)}</div>`, req.query.message));
+  });
+
+  app.get('/web-logins', (req, res) => {
+    const rows = getWebLoginLog(200).map(l => `<tr><td>${escapeHtml(l.createdAt || '')}</td><td>${l.ok ? '<span class="status-ok">✅ успех</span>' : '<span class="status-bad">❌ ошибка</span>'}</td><td>${escapeHtml(l.ip)}</td><td>${escapeHtml(l.reason || '')}</td><td class="small muted">${escapeHtml(l.userAgent || '')}</td></tr>`).join('');
+    res.send(layout('Входы в веб-панель', `<div class="card wide"><h2>🔐 Журнал входов</h2><p class="muted">Показывает успешные и неуспешные входы в веб-панель. Используй для контроля безопасности.</p><table><tr><th>Дата</th><th>Статус</th><th>IP</th><th>Причина</th><th>User-Agent</th></tr>${rows || '<tr><td colspan="5">Входов пока нет.</td></tr>'}</table></div>`, req.query.message));
+  });
+
+  app.get('/purchase-history', (req, res) => {
+    const rows = getPurchaseHistory(null, 200).map(p => `<tr><td>#${p.purchaseId || p.id}</td><td>${escapeHtml(p.username || p.userId)}</td><td>${escapeHtml(p.meta?.itemName || p.meta?.itemId || '-')}</td><td>${Number(p.amount || 0)}</td><td>${p.meta?.dailyDeal ? '🔥 товар дня' : '—'}</td><td>${escapeHtml(p.createdAt || '')}</td></tr>`).join('');
+    res.send(layout('История покупок', `<div class="card wide"><h2>🧾 История покупок</h2><p class="muted">Журнал покупок магазина и скидок. Полезно для разбора спорных ситуаций.</p><table><tr><th>ID</th><th>Пользователь</th><th>Товар</th><th>Сумма</th><th>Скидка</th><th>Дата</th></tr>${rows || '<tr><td colspan="6">Покупок пока нет.</td></tr>'}</table></div>`, req.query.message));
+  });
+
+  app.get('/automod-rules', (req, res) => {
+    const rules = getAutomodRules();
+    const labels = { links: 'Ссылки', caps: 'Капс', spam: 'Спам', mentions: 'Упоминания', words: 'Запрещенные слова' };
+    const rows = Object.entries(rules).map(([key, rule]) => `<tr><td><b>${escapeHtml(labels[key] || key)}</b><div class="small muted">${escapeHtml(key)}</div></td><td>${rule.enabled ? '✅' : '—'}</td><td>${escapeHtml(rule.action || 'delete')}</td><td>${rule.warn ? '✅' : '—'}</td><td><form method="post" action="/actions/automod-rule-save"><input type="hidden" name="key" value="${escapeHtml(key)}"/><label class="toggle"><input type="checkbox" name="enabled" ${rule.enabled?'checked':''}/><span>Включено</span></label><select name="action"><option value="delete" ${rule.action==='delete'?'selected':''}>Удалять</option><option value="log" ${rule.action==='log'?'selected':''}>Только лог</option><option value="ignore" ${rule.action==='ignore'?'selected':''}>Игнорировать</option></select><label class="toggle"><input type="checkbox" name="warn" ${rule.warn?'checked':''}/><span>Предупреждать</span></label><button>Сохранить</button></form></td></tr>`).join('');
+    res.send(layout('AutoMod Rules 2.0', `<div class="card"><h2>🛡 AutoMod Rules 2.0</h2><p class="muted">Расширенная матрица действий. Она дополняет основную страницу AutoMod и позволяет мягко отключать отдельные реакции.</p></div><div class="card section wide"><table><tr><th>Правило</th><th>Вкл</th><th>Действие</th><th>Warn</th><th>Настройка</th></tr>${rows}</table></div>`, req.query.message));
+  });
+
+  app.get('/vps', (req, res) => {
+    const body = `<div class="grid-2"><div class="card"><h2>🖥 VPS migration helper</h2><p class="muted">Страница подготовки к будущему переносу на VPS. VPS нужен для стабильной музыки, UDP/Discord Voice и SQLite.</p><ul><li>Сделай backup JSON-базы.</li><li>Скачай data/database.json и data/backups.</li><li>На VPS установи Node.js 22 LTS и PM2.</li><li>Включи DB_DRIVER=sqlite при готовности.</li><li>Для музыки поставь MUSIC_ENABLED=true.</li></ul></div><div class="card"><h2>Команды</h2><div class="code">/vps-check
+npm run check
+npm run deploy
+npm start</div></div></div>`;
+    res.send(layout('VPS migration', body, req.query.message));
   });
 
   app.get('/moderation', (req, res) => {
@@ -701,7 +712,21 @@ function startWebPanel(client) {
   app.post('/actions/event-create', async (req, res) => { const guild = getGuild(client); if (!guild) return res.redirect(redirect('/events', 'Сервер не найден.')); const fake = { guild, user: { id: client.user.id, username: client.user.username } }; const result = await createEvent(fake, { title: String(req.body.title || '').slice(0, 80), description: String(req.body.description || '').slice(0, 1000), dateInput: String(req.body.date || ''), maxMembers: Number(req.body.max) || 0 }).catch(e => { console.error(e); return { ok: false, reason: 'error' }; }); res.redirect(redirect('/events', result.ok ? `Ивент #${result.event.id} создан.` : 'Не удалось создать ивент. Проверь дату.')); });
   app.post('/actions/event-cancel', (req, res) => { const db = readDatabase(); const ev = db.events?.[String(req.body.id)]; if (ev) { ev.status = 'closed'; ev.updatedAt = new Date().toISOString(); db.events[String(req.body.id)] = ev; writeDatabase(db); } res.redirect(redirect('/events', ev ? `Ивент #${ev.id} закрыт.` : 'Ивент не найден.')); });
   app.post('/actions/event-open', (req, res) => { const db = readDatabase(); const ev = db.events?.[String(req.body.id)]; if (ev) { ev.status = 'open'; ev.updatedAt = new Date().toISOString(); db.events[String(req.body.id)] = ev; writeDatabase(db); } res.redirect(redirect('/events', ev ? `Ивент #${ev.id} открыт.` : 'Ивент не найден.')); });
-  app.post('/actions/ticket-close', async (req, res) => { const db = readDatabase(); const t = db.tickets?.[String(req.body.id)]; if (t) { t.status = 'closed'; t.closedAt = new Date().toISOString(); db.tickets[String(req.body.id)] = t; writeDatabase(db); const guild = getGuild(client); const channel = guild?.channels.cache.get(t.channelId); if (channel) await channel.delete('Ticket closed from web panel').catch(() => null); } res.redirect(redirect('/tickets', t ? `Тикет #${t.id} закрыт.` : 'Тикет не найден.')); });
+  app.post('/actions/ticket-update', (req, res) => {
+    const guild = getGuild(client);
+    const assigned = req.body.assignedTo ? guild?.members.cache.get(String(req.body.assignedTo)) : null;
+    const ticket = updateTicketRecord(String(req.body.id), {
+      status: String(req.body.status || 'open'),
+      priority: String(req.body.priority || 'normal'),
+      assignedTo: assigned?.id || null,
+      assignedName: assigned?.user?.tag || assigned?.displayName || null,
+      moderatorComment: String(req.body.comment || '').trim() || undefined
+    });
+    addAudit('ticket_update_web', { username: 'web-panel', id: 'web' }, { id: req.body.id, status: req.body.status, priority: req.body.priority, assignedTo: req.body.assignedTo });
+    res.redirect(redirect('/tickets', ticket ? `Тикет #${ticket.id} обновлен.` : 'Тикет не найден.'));
+  });
+
+  app.post('/actions/ticket-close', async (req, res) => { const db = readDatabase(); const t = db.tickets?.[String(req.body.id)]; if (t) { t.status = 'closed'; t.closedAt = new Date().toISOString(); t.closeReason = String(req.body.reason || req.body.comment || 'Закрыто через веб-панель'); db.tickets[String(req.body.id)] = t; writeDatabase(db); const guild = getGuild(client); const channel = guild?.channels.cache.get(t.channelId); if (channel) await channel.delete('Ticket closed from web panel').catch(() => null); } res.redirect(redirect('/tickets', t ? `Тикет #${t.id} закрыт.` : 'Тикет не найден.')); });
   app.post('/actions/ticket-open', (req, res) => { const db = readDatabase(); const t = db.tickets?.[String(req.body.id)]; if (t) { t.status = 'open'; t.closedAt = null; db.tickets[String(req.body.id)] = t; writeDatabase(db); } res.redirect(redirect('/tickets', t ? `Тикет #${t.id} открыт в базе.` : 'Тикет не найден.')); });
   app.post('/actions/tournament-create', (req, res) => { const t = createTournament(client.user.id, client.user.username, req.body.title, Number(req.body.max) || 16, req.body.description || ''); res.redirect(redirect('/tournaments', `Турнир #${t.id} создан.`)); });
   app.post('/actions/tournament-cancel', (req, res) => { const r = closeTournament(Number(req.body.id), 'cancelled'); res.redirect(redirect('/tournaments', r.ok ? `Турнир #${r.tournament.id} закрыт.` : 'Турнир не найден.')); });
@@ -893,18 +918,6 @@ npm run safe:update</p></div><div class="card"><h2>Важно для SQLite</h2>
     res.redirect(redirect('/maintenance', enabled ? 'Режим обслуживания включен.' : 'Режим обслуживания выключен.'));
   });
 
-  app.post('/actions/errors-clear', (req, res) => {
-    clearErrorLog();
-    addAudit('errors_clear_web', { username: 'web-panel', id: 'web' }, { source: 'web' });
-    res.redirect(redirect('/errors', 'Журнал ошибок очищен.'));
-  });
-
-  app.post('/actions/scenario', (req, res) => {
-    const result = runScenario(String(req.body.type || ''));
-    addAudit('admin_scenario_web', { username: 'web-panel', id: 'web' }, { type: req.body.type, result });
-    res.redirect(result.ok ? redirect('/scenarios', result.messages.join(' ')) : redirect('/scenarios', '', result.messages.join(' ')));
-  });
-
   app.get('/health', async (req, res) => {
     const guild = getGuild(client);
     const report = await buildHealthReport(client, guild).catch(error => ({
@@ -925,7 +938,7 @@ npm run safe:update</p></div><div class="card"><h2>Важно для SQLite</h2>
     cleanupOldExports();
     const backups = listBackups();
     const rows = backups.map(b => `<tr><td><code>${escapeHtml(b.name)}</code></td><td>${Math.round(b.size / 1024)} КБ</td><td>${escapeHtml(b.modifiedAt)}</td><td><div class="actions"><a class="pill" href="/download/backup/${encodeURIComponent(b.name)}">Скачать</a><form method="post" action="/actions/backup-restore" onsubmit="return confirm('Восстановить базу из этого бэкапа? Текущие данные будут заменены.')"><input type="hidden" name="name" value="${escapeHtml(b.name)}"/><button class="green">Восстановить</button></form><form method="post" action="/actions/backup-delete" onsubmit="return confirm('Удалить этот бэкап?')"><input type="hidden" name="name" value="${escapeHtml(b.name)}"/><button class="danger">Удалить</button></form></div></td></tr>`).join('');
-    const body = `<div class="grid-2"><div class="card"><h2>💾 Backup-центр</h2><p class="muted">Бэкап сохраняет текущее состояние базы в JSON. Перед восстановлением автоматически создается страховая копия. Используй stable/predeploy-имена перед обновлениями.</p><form method="post" action="/actions/backup-create"><input name="name" placeholder="Название, например before-update"/><button>Создать бэкап</button></form></div><div class="card"><h2>📤 Экспорт данных</h2><p class="muted">Экспорт можно скачать как JSON или CSV. CSV доступен для пользователей, экономики и предупреждений.</p><form method="post" action="/actions/export-data"><select name="type"><option value="users">Пользователи</option><option value="economy">Экономика</option><option value="warnings">Предупреждения</option><option value="all">Все данные</option></select><select name="format"><option value="json">JSON</option><option value="csv">CSV</option></select><button>Скачать экспорт</button></form></div></div><div class="card section wide"><h2>📦 Список бэкапов</h2><table><tr><th>Файл</th><th>Размер</th><th>Изменен</th><th>Действия</th></tr>${rows || '<tr><td colspan="4">Бэкапов пока нет.</td></tr>'}</table></div>`;
+    const body = `<div class="grid-2"><div class="card"><h2>💾 Резервные копии</h2><p class="muted">Бэкап сохраняет текущее состояние базы в JSON. Перед восстановлением автоматически создается страховая копия.</p><form method="post" action="/actions/backup-create"><input name="name" placeholder="Название, например before-update"/><button>Создать бэкап</button></form></div><div class="card"><h2>📤 Экспорт данных</h2><p class="muted">Экспорт можно скачать как JSON или CSV. CSV доступен для пользователей, экономики и предупреждений.</p><form method="post" action="/actions/export-data"><select name="type"><option value="users">Пользователи</option><option value="economy">Экономика</option><option value="warnings">Предупреждения</option><option value="all">Все данные</option></select><select name="format"><option value="json">JSON</option><option value="csv">CSV</option></select><button>Скачать экспорт</button></form></div></div><div class="card section wide"><h2>📦 Список бэкапов</h2><table><tr><th>Файл</th><th>Размер</th><th>Изменен</th><th>Действия</th></tr>${rows || '<tr><td colspan="4">Бэкапов пока нет.</td></tr>'}</table></div>`;
     res.send(layout('Бэкапы', body, req.query.message, req.query.warning));
   });
 
