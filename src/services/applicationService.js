@@ -168,7 +168,7 @@ function buildApplicationEmbed(app) {
   return embed;
 }
 
-function findRoutedApplicationChannel(guild, app, settings = getSettings()) {
+function findApplicationsChannel(guild, settings = getSettings(), app = null) {
   const isComplaint = app?.type === 'complaint';
   const channelId = isComplaint
     ? (settings.complaintsChannelId || process.env.COMPLAINTS_CHANNEL_ID)
@@ -177,10 +177,11 @@ function findRoutedApplicationChannel(guild, app, settings = getSettings()) {
     ? (settings.complaintsChannelName || process.env.COMPLAINTS_CHANNEL_NAME || '🚨・жалобы')
     : (settings.applicationsChannelName || '📨・заявки');
 
+  const allowedTypes = new Set([ChannelType.GuildText, ChannelType.GuildForum, ChannelType.GuildAnnouncement]);
   const byId = channelId ? guild?.channels?.cache?.get(String(channelId)) : null;
-  if (byId && [ChannelType.GuildText, ChannelType.GuildForum].includes(byId.type)) return byId;
+  if (byId && allowedTypes.has(byId.type)) return byId;
 
-  const byName = guild?.channels?.cache?.find(ch => [ChannelType.GuildText, ChannelType.GuildForum].includes(ch.type) && ch.name === channelName);
+  const byName = guild?.channels?.cache?.find(ch => allowedTypes.has(ch.type) && ch.name === channelName);
   return byName || findTextChannelByName(guild, channelName);
 }
 
@@ -200,7 +201,7 @@ function getForumTagsForApplicationChannel(app) {
 async function publishApplication(guild, app) {
   const settings = getSettings();
 
-  let channel = findRoutedApplicationChannel(guild, app, settings);
+  let channel = findApplicationsChannel(guild, settings, app);
 
   if (!channel) {
     const category = guild.channels.cache.find(item => item.type === ChannelType.GuildCategory && item.name.includes('МОДЕРАЦ'));

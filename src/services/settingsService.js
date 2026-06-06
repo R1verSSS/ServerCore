@@ -21,7 +21,7 @@ const SETTINGS_DESCRIPTIONS = {
   applicationsChannelName: 'Канал для заявок пользователей.',
   applicationsChannelId: 'ID канала заявок. Поддерживаются текстовые и Forum-каналы.',
   complaintsChannelName: 'Forum-канал для жалоб пользователей.',
-  complaintsChannelId: 'ID Forum-канала жалоб. Жалобы из панели заявок отправляются сюда.',
+  complaintsChannelId: 'ID Forum-канала жалоб пользователей.',
   ticketActiveCategoryName: 'Категория для активных приватных тикетов поддержки.',
   ticketActiveCategoryId: 'ID категории для активных тикетов. Если пусто, используется имя категории.',
   ticketArchiveChannelName: 'Канал или Forum для архива закрытых тикетов.',
