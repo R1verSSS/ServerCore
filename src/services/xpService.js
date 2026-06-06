@@ -43,6 +43,12 @@ async function tryGiveLevelRoles(member, level) {
   }
 }
 
+async function syncMemberLevelRoles(member, level) {
+  if (!member || !member.user || member.user.bot) return false;
+  await tryGiveLevelRoles(member, level || 1);
+  return true;
+}
+
 async function addXpToMember(member, amount) {
   if (!member || !member.user || member.user.bot || !amount || amount <= 0) {
     return { user: null, leveledUp: false, newLevel: null };
@@ -157,6 +163,7 @@ async function addMessageXp(message) {
 module.exports = {
   addMessageXp,
   addXpToMember,
+  syncMemberLevelRoles,
   getUserStats,
   getTopUsers,
   getRequiredXp
