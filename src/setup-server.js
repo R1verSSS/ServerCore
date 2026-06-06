@@ -9,6 +9,7 @@ const { buildModerationPanel } = require('./services/moderationPanel');
 const { buildShopPanel } = require('./services/shopPanel');
 const { buildMusicPanel, isMusicEnabled } = require('./services/musicService');
 const { buildPublicCommandsPanel, buildModerationCommandsPanel } = require('./services/commandReferenceService');
+const { buildWebPanelMenuPayload } = require('./services/webPanelMenuService');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
@@ -81,13 +82,16 @@ async function createChannelIfMissing(guild, channelConfig, parent) {
   });
 }
 
-async function sendOnce(channel, payload, markerTitle) {
+async function sendOnce(channel, payload, markerTitle, options = {}) {
   if (!channel || !channel.isTextBased()) return;
   const messages = await channel.messages.fetch({ limit: 20 }).catch(() => null);
-  if (messages && messages.some(message => message.author.id === client.user.id && message.embeds.some(embed => embed.title === markerTitle))) {
+  const existing = messages?.find(message => message.author.id === client.user.id && message.embeds.some(embed => embed.title === markerTitle));
+  if (existing) {
+    if (options.pin && !existing.pinned) await existing.pin().catch(() => null);
     return;
   }
-  await channel.send(payload);
+  const sent = await channel.send(payload);
+  if (options.pin) await sent.pin().catch(() => null);
 }
 
 async function sendStarterMessages(guild) {
@@ -121,10 +125,12 @@ async function sendStarterMessages(guild) {
   await sendOnce(rules, { embeds: [rulesEmbed] }, '📜 Правила сервера');
   await sendOnce(navigation, { embeds: [navigationEmbed] }, '🧭 Навигация');
   await sendOnce(navigation, buildMainMenuPayload(), '🧭 Меню сервера');
+  await sendOnce(navigation, buildWebPanelMenuPayload(), '🌐 Веб-панель ServerCore', { pin: true });
   await sendOnce(rolesChannel, buildRolePanel(), '✅ Выбор ролей');
   await sendOnce(commandsChannel, buildPublicCommandsPanel(), '📚 Команды сервера');
   await sendOnce(shopChannel, buildShopPanel(), '🛒 Магазин сервера');
   await sendOnce(botChannel, { embeds: [botEmbed] }, '🤖 Команды бота');
+  await sendOnce(botChannel, buildWebPanelMenuPayload(), '🌐 Веб-панель ServerCore');
   await sendOnce(miniGames, buildGamePanel(), '🎲 Панель мини-игр');
   if (isMusicEnabled()) {
     await sendOnce(musicText, buildMusicPanel(), '🎵 Музыкальная панель');

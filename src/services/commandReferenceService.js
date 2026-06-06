@@ -5,6 +5,11 @@ const SECTIONS = {
     label: 'Профиль', emoji: '👤', title: '👤 Профиль и прогресс',
     lines: ['`/profile` — профиль участника', '`/profilecard` — PNG-карточка профиля', '`/rank` — уровень и XP', '`/top` — топ участников', '`/achievements` — достижения', '`/badges` — бейджи', '`/profilecustomize` — оформление профиля', '`/me` — личный центр пользователя']
   },
+
+  webpanel: {
+    label: 'Веб-панель', emoji: '🌐', title: '🌐 Веб-панель',
+    lines: ['`/webpanel open` — открыть меню веб-панели', '`/webpanel post` — опубликовать меню веб-панели, доступно администрации', '`/webaccount status` — статус пользовательского веб-аккаунта', '`/webaccount password` — задать пароль пользователя', '`/webaccount login-code` — одноразовый код входа', '`/webaccount disable` — отключить веб-аккаунт']
+  },
   economy: {
     label: 'Экономика', emoji: '💰', title: '💰 Экономика',
     lines: ['`/daily` — ежедневная награда', '`/balance` — баланс и последние операции и последние операции', '`/gift coins` — подарить монеты', '`/inventory` — инвентарь', '`/use` — использовать предмет']
@@ -69,12 +74,16 @@ function buildPublicCommandsPanel() {
     .setFooter({ text: 'ServerCore • Command Reference' });
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('commands:open:profile').setLabel('Профиль').setEmoji('👤').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('commands:open:webpanel').setLabel('Веб-панель').setEmoji('🌐').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('commands:open:economy').setLabel('Экономика').setEmoji('💰').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('commands:open:shop').setLabel('Магазин').setEmoji('🛒').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('commands:open:activities').setLabel('Активности').setEmoji('🎮').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('commands:open:support').setLabel('Поддержка').setEmoji('🎫').setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId('commands:open:shop').setLabel('Магазин').setEmoji('🛒').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('commands:open:activities').setLabel('Активности').setEmoji('🎮').setStyle(ButtonStyle.Secondary)
   );
-  return { embeds: [embed], components: [row] };
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('commands:open:support').setLabel('Поддержка').setEmoji('🎫').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('commands:open:voice').setLabel('Voice').setEmoji('🔊').setStyle(ButtonStyle.Secondary)
+  );
+  return { embeds: [embed], components: [row, row2] };
 }
 
 function buildModerationCommandsPanel() {

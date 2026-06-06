@@ -37,6 +37,7 @@ const { buildCommandReferencePayload } = require('./services/commandReferenceSer
 const { handleShopButton, handleShopSelect } = require('./services/shopPanel');
 const { handleProtectedChannelMessage } = require('./services/protectedChannelService');
 const { handleMusicButton, handleMusicModal } = require('./services/musicService');
+const { buildWebPanelHelpPayload } = require('./services/webPanelMenuService');
 
 // Для нестабильных сетей Discord/Cloudflare: сначала пробуем IPv4.
 // Это часто устраняет UND_ERR_CONNECT_TIMEOUT на Windows.
@@ -221,6 +222,12 @@ client.on('interactionCreate', async interaction => {
     if (interaction.isStringSelectMenu() && interaction.customId === 'menu:section') {
       const section = interaction.values?.[0] || 'profile';
       await safeReply(interaction, buildSectionPayload(section));
+      return;
+    }
+
+    if (interaction.isButton() && interaction.customId.startsWith('webpanel:')) {
+      const [, kind] = interaction.customId.split(':');
+      await safeReply(interaction, buildWebPanelHelpPayload(kind || 'help'));
       return;
     }
 

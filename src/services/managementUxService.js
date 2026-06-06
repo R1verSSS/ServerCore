@@ -11,6 +11,7 @@ const DEFAULT_TICKET_TEMPLATES = [
 
 const PANEL_DEFINITIONS = [
   { id: 'main', label: '🧭 Главное меню', channel: '🧭・навигация' },
+  { id: 'webpanel', label: '🌐 Веб-панель', channel: '🧭・навигация' },
   { id: 'roles', label: '✅ Панель ролей', channel: '✅・получить-роли' },
   { id: 'shop', label: '🛒 Магазин', channel: '🛍・витрина' },
   { id: 'games', label: '🎲 Мини-игры', channel: '🎲・мини-игры' },

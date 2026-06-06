@@ -131,3 +131,19 @@ npm run setup
 ## v24.1.16 User Web Panel & Auth Upgrade
 
 Добавлена пользовательская веб-панель: вход по Discord ID через `/webaccount password` или одноразовый код `/webaccount login-code`. Админская панель доступна через логин `Admin` и `WEB_PASSWORD`.
+
+## v24.1.17 Web Panel Menu Upgrade
+
+Добавлено удобное Discord-меню для веб-панели:
+
+- `/webpanel open` — открыть меню веб-панели для себя.
+- `/webpanel post` — опубликовать меню в канал.
+- В `/menu open` добавлен раздел `🌐 Веб-панель`.
+- `npm run setup` публикует меню веб-панели в `🧭・навигация`.
+- Ссылка на вход задается через `WEB_PANEL_URL`.
+
+Рекомендуемое значение для Bothost:
+
+```env
+WEB_PANEL_URL=https://bot-1780694887-7211-r1vers.bothost.tech/login
+```
