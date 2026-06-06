@@ -1,3 +1,15 @@
+async function safeYoutubeValidate(url) {
+  try {
+    const result = play.yt_validate(url);
+    if (result && typeof result.then === 'function') {
+      return await result;
+    }
+    return result;
+  } catch (error) {
+    return false;
+  }
+}
+
 const {
   EmbedBuilder,
   ActionRowBuilder,
@@ -139,18 +151,6 @@ function isYoutubeUrl(url = '') {
   try {
     const parsed = new URL(url);
     return ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be', 'music.youtube.com'].includes(parsed.hostname);
-  } catch (_) {
-    return false;
-  }
-}
-
-async function safeYoutubeValidate(url) {
-  try {
-    const result = play.yt_validate(url);
-    if (result && typeof result.then === 'function') {
-      return await result.catch(() => false);
-    }
-    return result || false;
   } catch (_) {
     return false;
   }

@@ -109,8 +109,7 @@ APPLICATIONS_CHANNEL_ID=1512791242000564229
 - Сохранён терминальный скрипт `npm run voice:diagnose`.
 - Сохранены Dockerfile build tools для Bothost: `python3`, `make`, `g++`, `pkg-config`, `libopus-dev`, `libsodium-dev`, `ffmpeg`.
 
-## v24.1.38 — Music play-dl validation compatibility fix
+## v24.1.39 — Music modal play-dl validation fix
 
-- Исправлен `/music play` для текущей версии `play-dl`: `yt_validate()` может возвращать значение синхронно, без `.catch()`.
-- Ошибка `TypeError: play.yt_validate(...).catch is not a function` больше не должна возникать.
-- Dockerfile/voice-зависимости/`voice:diagnose` сохранены.
+- Исправлен оставшийся вызов `play.yt_validate(...).catch(...)` в `musicService.js`.
+- Проверка YouTube-ссылки теперь работает одинаково для slash-команды и modal-формы.
