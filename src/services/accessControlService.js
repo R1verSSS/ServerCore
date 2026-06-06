@@ -30,6 +30,7 @@ const COMMAND_RULES = {
   'setup-wizard': { level: 'ADMIN' },
   'hosting-check': { level: 'ADMIN' },
   'network-check': { level: 'ADMIN' },
+  'production-check': { level: 'ADMIN' },
   dbstatus: { level: 'ADMIN' },
   modpanel: { level: 'MODERATOR' },
   gamepanel: { level: 'ADMIN' },

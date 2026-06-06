@@ -7,7 +7,7 @@ const { buildGamePanel } = require('./services/gamePanel');
 const { buildVoicePanel } = require('./services/tempVoiceService');
 const { buildModerationPanel } = require('./services/moderationPanel');
 const { buildShopPanel } = require('./services/shopPanel');
-const { buildMusicPanel } = require('./services/musicService');
+const { buildMusicPanel, isMusicEnabled } = require('./services/musicService');
 const { buildPublicCommandsPanel, buildModerationCommandsPanel } = require('./services/commandReferenceService');
 
 const client = new Client({
@@ -126,7 +126,9 @@ async function sendStarterMessages(guild) {
   await sendOnce(shopChannel, buildShopPanel(), '🛒 Магазин сервера');
   await sendOnce(botChannel, { embeds: [botEmbed] }, '🤖 Команды бота');
   await sendOnce(miniGames, buildGamePanel(), '🎲 Панель мини-игр');
-  await sendOnce(musicText, buildMusicPanel(), '🎵 Музыкальная панель');
+  if (isMusicEnabled()) {
+    await sendOnce(musicText, buildMusicPanel(), '🎵 Музыкальная панель');
+  }
   await sendOnce(voiceHelp, buildVoicePanel(), '🔊 Управление личной voice-комнатой');
   await sendOnce(modPanel, buildModerationPanel(), '🧰 Панель модерации');
   await sendOnce(modCommands, buildModerationCommandsPanel(), '📘 Команды модерации');

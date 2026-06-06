@@ -19,9 +19,30 @@ const {
 } = require('@discordjs/voice');
 const play = require('play-dl');
 const { addAudit } = require('./auditService');
+const { isModuleEnabled } = require('./moduleService');
 
 const queues = new Map();
 const MAX_PLAYLIST_ITEMS = Number(process.env.MUSIC_MAX_PLAYLIST_ITEMS || 15);
+
+function isMusicEnabled() {
+  return String(process.env.MUSIC_ENABLED || 'true').toLowerCase() !== 'false' && isModuleEnabled('music');
+}
+
+function musicDisabledPayload() {
+  return {
+    embeds: [new EmbedBuilder()
+      .setColor(0xFEE75C)
+      .setTitle('🎵 Музыка отключена')
+      .setDescription('Музыкальный модуль сейчас отключен на этом хостинге. Для работы YouTube-аудио Discord обычно нужен VPS/UDP или Lavalink. Остальные функции ServerCore работают без музыки.')
+      .addFields(
+        { name: 'Как включить', value: 'Поставь `MUSIC_ENABLED=true` и убедись, что хостинг поддерживает Discord Voice/UDP.' },
+        { name: 'Рекомендуемый режим для Bothost', value: '`MUSIC_ENABLED=false`, если voice-подключение зависает на `signalling`.' }
+      )
+      .setFooter({ text: 'ServerCore • Music Status' })],
+    components: []
+  };
+}
+
 
 function getState(guildId) {
   if (!queues.has(guildId)) {
@@ -165,6 +186,7 @@ async function ensureConnection(interaction) {
 }
 
 async function enqueue(interaction, url) {
+  if (!isMusicEnabled()) return { ok: false, reason: 'music_disabled' };
   const connect = await ensureConnection(interaction);
   if (!connect.ok) return connect;
 
@@ -246,12 +268,15 @@ function leave(guildId) {
 }
 
 function buildMusicPanel() {
+  const enabled = isMusicEnabled();
   const embed = new EmbedBuilder()
     .setColor(0x9B59B6)
     .setTitle('🎵 Музыкальная панель')
-    .setDescription(`Включай музыку по ссылке YouTube прямо в своей voice-комнате. Сначала зайди в голосовой канал, затем нажми **Включить YouTube** или используй \`/music play\`.
+    .setDescription(enabled
+      ? `Включай музыку по ссылке YouTube прямо в своей voice-комнате. Сначала зайди в голосовой канал, затем нажми **Включить YouTube** или используй \`/music play\`.
 
-Используй только контент, который разрешено проигрывать на твоем сервере.`)
+Используй только контент, который разрешено проигрывать на твоем сервере.`
+      : '⚠️ Музыкальный модуль отключен на текущем хостинге. Для Discord Voice/YouTube-аудио нужен VPS/UDP или отдельный Lavalink-сервер. Панель оставлена как справка.')
     .addFields(
       { name: '▶️ Быстрый старт', value: '1. Зайди в voice-комнату\n2. Нажми **Включить YouTube**\n3. Вставь ссылку\n4. Управляй воспроизведением кнопками' },
       { name: '🔗 Поддержка', value: 'YouTube video и playlist. Для playlist добавляется ограниченное число треков.' }
@@ -259,15 +284,15 @@ function buildMusicPanel() {
     .setFooter({ text: 'ServerCore • Music Panel' });
 
   const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('music:play_modal').setLabel('Включить YouTube').setEmoji('▶️').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId('music:pause').setLabel('Пауза').setEmoji('⏸️').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('music:resume').setLabel('Продолжить').setEmoji('▶️').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('music:skip').setLabel('Пропустить').setEmoji('⏭️').setStyle(ButtonStyle.Primary)
+    new ButtonBuilder().setCustomId('music:play_modal').setLabel('Включить YouTube').setEmoji('▶️').setStyle(ButtonStyle.Success).setDisabled(!enabled),
+    new ButtonBuilder().setCustomId('music:pause').setLabel('Пауза').setEmoji('⏸️').setStyle(ButtonStyle.Secondary).setDisabled(!enabled),
+    new ButtonBuilder().setCustomId('music:resume').setLabel('Продолжить').setEmoji('▶️').setStyle(ButtonStyle.Secondary).setDisabled(!enabled),
+    new ButtonBuilder().setCustomId('music:skip').setLabel('Пропустить').setEmoji('⏭️').setStyle(ButtonStyle.Primary).setDisabled(!enabled)
   );
   const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('music:queue').setLabel('Очередь').setEmoji('📃').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('music:stop').setLabel('Стоп').setEmoji('⏹️').setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId('music:leave').setLabel('Выйти').setEmoji('👋').setStyle(ButtonStyle.Danger)
+    new ButtonBuilder().setCustomId('music:stop').setLabel('Стоп').setEmoji('⏹️').setStyle(ButtonStyle.Danger).setDisabled(!enabled),
+    new ButtonBuilder().setCustomId('music:leave').setLabel('Выйти').setEmoji('👋').setStyle(ButtonStyle.Danger).setDisabled(!enabled)
   );
   return { embeds: [embed], components: [row1, row2] };
 }
@@ -298,6 +323,24 @@ function buildNowPlayingEmbed(state) {
   return embed;
 }
 
+
+function buildMusicStatusPayload(guildId) {
+  const enabled = isMusicEnabled();
+  const state = queues.get(guildId);
+  const embed = new EmbedBuilder()
+    .setColor(enabled ? 0x57F287 : 0xFEE75C)
+    .setTitle('🎵 Статус музыкального модуля')
+    .addFields(
+      { name: 'Состояние', value: enabled ? '✅ Включен' : '⚠️ Отключен', inline: true },
+      { name: 'MUSIC_ENABLED', value: String(process.env.MUSIC_ENABLED || 'true'), inline: true },
+      { name: 'Voice', value: state?.connection ? `Подключение: ${state.connection.state?.status || 'unknown'}` : 'Нет активного подключения', inline: false },
+      { name: 'Очередь', value: state ? `Сейчас: ${state.current?.title || 'ничего'}\nВ очереди: ${state.queue.length}` : 'Очередь пуста', inline: false },
+      { name: 'Подсказка', value: enabled ? 'Если подключение зависает на `signalling`, хостинг, вероятно, не поддерживает Discord Voice/UDP.' : 'Для включения поставь `MUSIC_ENABLED=true`, затем redeploy.' }
+    )
+    .setFooter({ text: 'ServerCore • Music Status' });
+  return { embeds: [embed], components: [] };
+}
+
 function buildQueuePayload(guildId) {
   const state = getState(guildId);
   const lines = state.queue.slice(0, 10).map((item, idx) => `${idx + 1}. **${item.title}** — ${item.duration}`);
@@ -308,6 +351,7 @@ function buildQueuePayload(guildId) {
 
 async function handleMusicButton(interaction) {
   const action = interaction.customId.split(':')[1];
+  if (!isMusicEnabled() && action !== 'queue') return musicDisabledPayload();
 
   if (action === 'play_modal') {
     await interaction.showModal(buildPlayModal());
@@ -341,12 +385,14 @@ async function handleMusicButton(interaction) {
 }
 
 async function handleMusicModal(interaction) {
+  if (!isMusicEnabled()) return musicDisabledPayload();
   const url = interaction.fields.getTextInputValue('url');
   const result = await enqueue(interaction, url);
   if (!result.ok) {
     if (result.reason === 'not_in_voice') return { content: '❌ Сначала зайди в голосовой канал.', embeds: [], components: [] };
     if (result.reason === 'only_youtube') return { content: '❌ Сейчас поддерживаются только ссылки YouTube.', embeds: [], components: [] };
     if (result.reason === 'invalid_url') return { content: '❌ Не удалось распознать YouTube-ссылку.', embeds: [], components: [] };
+    if (result.reason === 'music_disabled') return musicDisabledPayload();
     if (result.reason === 'missing_voice_permissions') return { content: `❌ У меня нет доступа к voice-каналу **${result.voiceChannel?.name || 'канал'}**. Проверь права View Channel / Connect / Speak именно в этом канале или категории.`, embeds: [], components: [] };
     if (result.reason === 'connection_failed') return { content: `❌ Не удалось подключиться к voice-каналу **${result.voiceChannel?.name || 'канал'}**. Я записал подробную ошибку в логи хостинга.`, embeds: [], components: [] };
     return { content: `❌ Не удалось добавить трек: ${result.reason || 'ошибка'}.`, embeds: [], components: [] };
@@ -360,6 +406,9 @@ async function handleMusicModal(interaction) {
 }
 
 module.exports = {
+  isMusicEnabled,
+  musicDisabledPayload,
+  buildMusicStatusPayload,
   buildMusicPanel,
   buildPlayModal,
   buildNowPlayingEmbed,

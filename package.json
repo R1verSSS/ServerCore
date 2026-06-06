@@ -1,7 +1,7 @@
 {
   "name": "servercore-discord-bot",
-  "version": "24.1.10",
-  "description": "ServerCore Discord bot v24.1 hosting-ready with protected channels and music panel",
+  "version": "24.1.11",
+  "description": "ServerCore Discord bot v24.1 hosting stability and server control",
   "main": "http-wrapper.js",
   "scripts": {
     "start": "node http-wrapper.js",
@@ -16,6 +16,7 @@
     "hosting:check": "node src/tools/hosting-check.js",
     "net:check": "node src/tools/network-check.js",
     "doctor": "node src/tools/doctor.js",
+    "production:check": "node src/tools/production-check.js",
     "start:direct": "node src/index.js",
     "hosting:start": "node http-wrapper.js",
     "postinstall": "node -e \"const fs=require('fs'); for (const d of ['data','data/backups','data/exports','logs']) fs.mkdirSync(d,{recursive:true});\""

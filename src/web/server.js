@@ -27,6 +27,9 @@ const { CHANNELS, ROLES, DEFAULTS } = require('../config/serverConfig');
 const { getAccessMatrixRows, getMemberLevel, getLevelLabel } = require('../services/accessControlService');
 const { buildShopPanel } = require('../services/shopPanel');
 const { buildPublicCommandsPanel, buildModerationCommandsPanel, commandsHtml } = require('../services/commandReferenceService');
+const { buildModuleStatus, setModuleEnabled } = require('../services/moduleService');
+const { listChannelRules, setChannelRule } = require('../services/channelRulesService');
+const { buildProductionReport } = require('../services/productionCheckService');
 
 const started = { value: false };
 const loginAttempts = new Map();
@@ -96,11 +99,11 @@ function getStats(client) {
 }
 function layout(title, body, message = '', warning = '') {
   const navGroups = [
-    { title: 'Главное', icon: '🏠', links: [['/', 'Дашборд'], ['/quick-actions', 'Быстрые действия'], ['/panels', 'Панели Discord'], ['/project', 'Проект'], ['/health', 'Health'], ['/network', 'Сеть'], ['/docs', 'Документация']] },
+    { title: 'Главное', icon: '🏠', links: [['/', 'Дашборд'], ['/quick-actions', 'Быстрые действия'], ['/modules', 'Модули'], ['/panels', 'Панели Discord'], ['/project', 'Проект'], ['/health', 'Health'], ['/network', 'Сеть'], ['/docs', 'Документация']] },
     { title: 'Пользователи', icon: '👥', links: [['/users', 'Участники'], ['/profiles', 'Профили'], ['/economy', 'Экономика'], ['/shop-admin', 'Магазин']] },
     { title: 'Активности', icon: '🎮', links: [['/events', 'Ивенты'], ['/voice', 'Voice'], ['/suggestions-panel', 'Предложения'], ['/notifications', 'Уведомления'], ['/clans', 'Кланы'], ['/applications', 'Заявки'], ['/tournaments', 'Турниры'], ['/season', 'Сезон']] },
-    { title: 'Модерация', icon: '🛡️', links: [['/tickets', 'Тикеты'], ['/moderation', 'Модерация'], ['/access', 'Доступ и роли'], ['/automod', 'AutoMod'], ['/logs', 'Логи'], ['/audit', 'Audit']] },
-    { title: 'Система', icon: '⚙️', links: [['/settings', 'Настройки'], ['/maintenance', 'Обслуживание'], ['/hosting', 'Хостинг'], ['/backups', 'Бэкапы'], ['/integrations', 'Интеграции'], ['/commands', 'Команды']] },
+    { title: 'Модерация', icon: '🛡️', links: [['/tickets', 'Тикеты'], ['/moderation', 'Модерация'], ['/channel-rules', 'Правила каналов'], ['/access', 'Доступ и роли'], ['/automod', 'AutoMod'], ['/logs', 'Логи'], ['/audit', 'Audit']] },
+    { title: 'Система', icon: '⚙️', links: [['/settings', 'Настройки'], ['/maintenance', 'Обслуживание'], ['/production', 'Production-check'], ['/hosting', 'Хостинг'], ['/backups', 'Бэкапы'], ['/integrations', 'Интеграции'], ['/commands', 'Команды']] },
   ];
   const nav = navGroups.map(group => `<details class="nav-group" open><summary>${group.icon} ${group.title}</summary>${group.links.map(([href, label]) => `<a href="${href}">${label}</a>`).join('')}</details>`).join('');
   return `<!doctype html>
@@ -234,10 +237,55 @@ function startWebPanel(client) {
 
   app.get('/', (req, res) => {
     const stats = getStats(client); const guild = stats.guild; const storage = getStorageInfo();
-    const body = `<div class="grid"><div class="card"><div class="muted">Сервер</div><div class="stat">${escapeHtml(guild?.name || 'Не найден')}</div></div><div class="card"><div class="muted">Участников в базе</div><div class="stat">${stats.users.length}</div></div><div class="card"><div class="muted">Открытых тикетов</div><div class="stat">${stats.openTickets.length}</div></div><div class="card"><div class="muted">Активных ивентов</div><div class="stat">${stats.openEvents.length}</div></div><div class="card"><div class="muted">Активных предупреждений</div><div class="stat">${stats.activeWarnings.length}</div></div><div class="card"><div class="muted">База данных</div><div class="stat">${escapeHtml(storage.driver)}</div><div class="small muted">${escapeHtml(storage.sqlitePath || storage.jsonPath)}</div></div></div>
-    <div class="card section"><h2>⚡ Быстрые панели</h2><div class="actions"><form method="post" action="/actions/game-panel"><button>🎲 Панель мини-игр</button></form><form method="post" action="/actions/mod-panel"><button>🧰 Панель модерации</button></form><form method="post" action="/actions/role-panel"><button>✅ Панель ролей</button></form><form method="post" action="/actions/voice-setup"><button>🔊 Канал voice-комнат</button></form></div></div>
+    const backups = listBackups();
+    const modules = buildModuleStatus(client);
+    const music = modules.find(m => m.key === 'music');
+    const moduleBadges = modules.slice(0, 12).map(m => `<span class="status-pill"><span class="${m.state === 'ok' ? 'badge-ok' : m.state === 'warn' ? 'badge-warn' : 'badge-bad'}">●</span>${escapeHtml(m.label)}</span>`).join(' ');
+    const body = `<div class="grid"><div class="card"><div class="muted">Сервер</div><div class="stat">${escapeHtml(guild?.name || 'Не найден')}</div><p class="muted">Бот: ${escapeHtml(client.user?.tag || 'online')}</p></div><div class="card"><div class="muted">Участников в базе</div><div class="stat">${stats.users.length}</div></div><div class="card"><div class="muted">Открытых тикетов</div><div class="stat">${stats.openTickets.length}</div></div><div class="card"><div class="muted">Активных ивентов</div><div class="stat">${stats.openEvents.length}</div></div><div class="card"><div class="muted">Последний backup</div><div class="stat">${backups[0] ? 'OK' : '—'}</div><div class="small muted">${backups[0] ? escapeHtml(backups[0].name) : 'Создай первый backup'}</div></div><div class="card"><div class="muted">База данных</div><div class="stat">${escapeHtml(storage.driver)}</div><div class="small muted">${escapeHtml(storage.sqlitePath || storage.jsonPath)}</div></div></div>
+    <div class="grid-2 section"><div class="card"><h2>🧩 Модули</h2><p class="muted">Состояние основных систем ServerCore.</p><div class="tabs">${moduleBadges}</div><p><a class="pill" href="/modules">Управлять модулями</a><a class="pill" href="/production">Production-check</a></p></div><div class="card"><h2>🎵 Музыка</h2><p class="muted">Статус: ${music?.enabled ? 'включена' : 'отключена'}.</p><p class="muted">${escapeHtml(music?.hint || '')}</p><p><a class="pill" href="/modules">Настроить</a><a class="pill" href="/channel-rules">Правила каналов</a></p></div></div>
+    <div class="card section"><h2>⚡ Быстрые панели</h2><div class="actions"><form method="post" action="/actions/game-panel"><button>🎲 Панель мини-игр</button></form><form method="post" action="/actions/mod-panel"><button>🧰 Панель модерации</button></form><form method="post" action="/actions/role-panel"><button>✅ Панель ролей</button></form><form method="post" action="/actions/voice-setup"><button>🔊 Канал voice-комнат</button></form><form method="post" action="/actions/backup-create"><input type="hidden" name="name" value="dashboard-manual"/><button>💾 Создать backup</button></form></div></div>
     <div class="card section"><h2>🏆 Топ участников</h2>${renderUsersTable(stats.topUsers, true)}</div>`;
     res.send(layout('ServerCore Dashboard', body, req.query.message));
+  });
+
+
+  app.get('/modules', (req, res) => {
+    const modules = buildModuleStatus(client);
+    const rows = modules.map(m => `<tr><td>${m.icon} <b>${escapeHtml(m.label)}</b><div class="small muted">${escapeHtml(m.description)}</div></td><td>${m.enabled ? '<span class="status-ok">✅ включен</span>' : '<span class="status-warn">⚠️ выключен</span>'}</td><td>${escapeHtml(m.hint || '')}</td><td><form method="post" action="/actions/module-toggle"><input type="hidden" name="key" value="${escapeHtml(m.key)}"/><input type="hidden" name="enabled" value="${m.enabled ? 'false' : 'true'}"/><button class="${m.enabled ? 'gray' : 'green'}">${m.enabled ? 'Выключить' : 'Включить'}</button></form></td></tr>`).join('');
+    const body = `<div class="card"><h2>🧩 Модули ServerCore</h2><p class="muted">Здесь можно безопасно отключать функции, которые не поддерживаются текущим хостингом. Например, если Discord Voice/UDP недоступен, отключи музыку через <code>MUSIC_ENABLED=false</code> или кнопку ниже.</p></div><div class="card section wide"><table><tr><th>Модуль</th><th>Статус</th><th>Подсказка</th><th>Действие</th></tr>${rows}</table></div>`;
+    res.send(layout('Модули', body, req.query.message, req.query.warning));
+  });
+
+  app.post('/actions/module-toggle', (req, res) => {
+    setModuleEnabled(String(req.body.key || ''), String(req.body.enabled) === 'true');
+    addAudit('module_toggle_web', { username: 'web-panel', id: 'web' }, { key: req.body.key, enabled: req.body.enabled });
+    res.redirect(redirect('/modules', 'Настройка модуля сохранена. Для некоторых модулей нужен redeploy/restart.'));
+  });
+
+  app.get('/channel-rules', (req, res) => {
+    const rules = listChannelRules();
+    const rows = rules.map(rule => `<tr><td><b>${escapeHtml(rule.name)}</b></td><td>${escapeHtml(rule.mode)}</td><td>${rule.deleteMessages ? '✅' : '—'}</td><td>${rule.allowLinks ? '✅' : '❌'}</td><td>${rule.allowAttachments ? '✅' : '❌'}</td><td><form method="post" action="/actions/channel-rule"><input type="hidden" name="name" value="${escapeHtml(rule.name)}"/><select name="mode"><option value="free" ${rule.mode==='free'?'selected':''}>Свободный</option><option value="panel_only" ${rule.mode==='panel_only'?'selected':''}>Только панели/бот</option><option value="commands_only" ${rule.mode==='commands_only'?'selected':''}>Только команды</option><option value="music_only" ${rule.mode==='music_only'?'selected':''}>Только музыка</option></select><label class="toggle"><input type="checkbox" name="deleteMessages" ${rule.deleteMessages?'checked':''}/><span>Удалять сообщения</span></label><label class="toggle"><input type="checkbox" name="allowLinks" ${rule.allowLinks?'checked':''}/><span>Разрешить ссылки</span></label><label class="toggle"><input type="checkbox" name="allowAttachments" ${rule.allowAttachments?'checked':''}/><span>Разрешить вложения</span></label><label class="toggle"><input type="checkbox" name="warnUser" ${rule.warnUser?'checked':''}/><span>Предупреждать пользователя</span></label><button>Сохранить</button></form></td></tr>`).join('');
+    const body = `<div class="card"><h2>🧹 Правила каналов</h2><p class="muted">Настрой, где пользователи могут писать свободно, а где канал должен оставаться только для панелей, команд или музыки. Модераторы и админы обходят автоудаление.</p></div><div class="card section wide"><table><tr><th>Канал</th><th>Режим</th><th>Удаление</th><th>Ссылки</th><th>Вложения</th><th>Настройка</th></tr>${rows}</table></div>`;
+    res.send(layout('Правила каналов', body, req.query.message));
+  });
+
+  app.post('/actions/channel-rule', (req, res) => {
+    setChannelRule(String(req.body.name || ''), {
+      mode: String(req.body.mode || 'free'),
+      deleteMessages: Boolean(req.body.deleteMessages),
+      allowLinks: Boolean(req.body.allowLinks),
+      allowAttachments: Boolean(req.body.allowAttachments),
+      warnUser: Boolean(req.body.warnUser),
+    });
+    addAudit('channel_rule_update_web', { username: 'web-panel', id: 'web' }, { name: req.body.name, mode: req.body.mode });
+    res.redirect(redirect('/channel-rules', 'Правило канала сохранено.'));
+  });
+
+  app.get('/production', async (req, res) => {
+    const report = await buildProductionReport(client).catch(error => ({ checks: [{ ok: false, label: 'Production-check не выполнен', hint: error.message }], okCount: 0, total: 1, storage: {}, backups: 0 }));
+    const rows = report.checks.map(c => `<tr><td>${c.ok ? '<span class="status-ok">✅ OK</span>' : '<span class="status-warn">⚠️ Проверить</span>'}</td><td>${escapeHtml(c.label)}</td><td>${escapeHtml(c.hint || '')}</td></tr>`).join('');
+    const body = `<div class="grid"><div class="card"><h2>🚀 Production-check</h2><div class="stat">${report.okCount}/${report.total}</div><p class="muted">Финальная проверка после обновлений и redeploy.</p></div><div class="card"><h2>💾 База</h2><p><b>Драйвер:</b> ${escapeHtml(report.storage?.driver || 'unknown')}</p><p><b>Backup:</b> ${Number(report.backups || 0)}</p></div><div class="card"><h2>Команда Discord</h2><p class="code">/production-check</p></div></div><div class="card section wide"><h2>Проверки</h2><table><tr><th>Статус</th><th>Пункт</th><th>Подсказка</th></tr>${rows}</table></div>`;
+    res.send(layout('Production-check', body, req.query.message));
   });
 
   app.get('/access', (req, res) => {

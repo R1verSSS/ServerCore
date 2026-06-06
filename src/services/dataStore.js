@@ -50,6 +50,22 @@ const EMPTY_DB = {
   adminAudit: [],
   adminAuditCounter: 0,
   maintenance: { enabled: false, reason: '', updatedAt: null, updatedBy: null },
+  moduleSettings: {
+    music: { enabled: String(process.env.MUSIC_ENABLED || 'true').toLowerCase() !== 'false', status: 'auto' },
+    profiles: { enabled: true },
+    economy: { enabled: true },
+    shop: { enabled: true },
+    tickets: { enabled: true },
+    moderation: { enabled: true },
+    automod: { enabled: true },
+    tempVoice: { enabled: true },
+    events: { enabled: true },
+    tournaments: { enabled: true },
+    clans: { enabled: true },
+    backups: { enabled: true }
+  },
+  channelRules: {},
+  productionChecks: [],
   tempVoiceSettings: {
     createChannelName: '➕・создать-комнату',
     roomNameTemplate: '🔊・комната {username}',
@@ -99,6 +115,10 @@ function mergeDefaults(db) {
   if (!Array.isArray(normalized.adminAudit)) normalized.adminAudit = [];
   if (typeof normalized.adminAuditCounter !== 'number') normalized.adminAuditCounter = Number(normalized.adminAuditCounter || 0);
   if (!normalized.maintenance || typeof normalized.maintenance !== 'object') normalized.maintenance = { enabled: false, reason: '', updatedAt: null, updatedBy: null };
+  if (!normalized.moduleSettings || typeof normalized.moduleSettings !== 'object') normalized.moduleSettings = clone(EMPTY_DB.moduleSettings);
+  normalized.moduleSettings = { ...clone(EMPTY_DB.moduleSettings), ...(normalized.moduleSettings || {}) };
+  if (!normalized.channelRules || typeof normalized.channelRules !== 'object') normalized.channelRules = {};
+  if (!Array.isArray(normalized.productionChecks)) normalized.productionChecks = [];
   if (!normalized.tempVoiceRooms || typeof normalized.tempVoiceRooms !== 'object') normalized.tempVoiceRooms = {};
   if (!normalized.tempVoiceSettings || typeof normalized.tempVoiceSettings !== 'object') {
     normalized.tempVoiceSettings = {

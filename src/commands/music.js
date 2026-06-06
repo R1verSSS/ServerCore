@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { safeDefer, safeEdit } = require('../utils/safeInteraction');
-const { enqueue, pause, resume, skip, stop, leave, buildQueuePayload } = require('../services/musicService');
+const { enqueue, pause, resume, skip, stop, leave, buildQueuePayload, buildMusicStatusPayload, isMusicEnabled } = require('../services/musicService');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -15,10 +15,18 @@ module.exports = {
     .addSubcommand(sub => sub.setName('resume').setDescription('Продолжить воспроизведение'))
     .addSubcommand(sub => sub.setName('skip').setDescription('Пропустить текущий трек'))
     .addSubcommand(sub => sub.setName('stop').setDescription('Остановить музыку и очистить очередь'))
-    .addSubcommand(sub => sub.setName('leave').setDescription('Вывести бота из voice-канала')),
+    .addSubcommand(sub => sub.setName('leave').setDescription('Вывести бота из voice-канала'))
+    .addSubcommand(sub => sub.setName('status').setDescription('Показать статус музыкального модуля')),
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
     await safeDefer(interaction, { flags: MessageFlags.Ephemeral });
+
+    if (sub === 'status') return safeEdit(interaction, buildMusicStatusPayload(interaction.guildId));
+
+    if (!isMusicEnabled()) {
+      await safeEdit(interaction, buildMusicStatusPayload(interaction.guildId));
+      return;
+    }
 
     if (sub === 'play') {
       const url = interaction.options.getString('url', true);
