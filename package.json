@@ -1,6 +1,6 @@
 {
   "name": "servercore-discord-bot",
-  "version": "24.1.23",
+  "version": "24.1.24",
   "description": "ServerCore Discord bot v24.1 user experience flow upgrade",
   "main": "http-wrapper.js",
   "scripts": {
@@ -22,15 +22,14 @@
     "postinstall": "node -e \"const fs=require('fs'); for (const d of ['data','data/backups','data/exports','logs']) fs.mkdirSync(d,{recursive:true});\""
   },
   "dependencies": {
+    "@discordjs/voice": "^0.17.0",
     "discord.js": "^14.18.0",
     "dotenv": "^16.4.7",
     "express": "^4.19.2",
-    "pngjs": "^7.0.0",
-    "@discordjs/voice": "^0.17.0",
+    "libsodium-wrappers": "^0.7.15",
     "play-dl": "^1.9.7",
-    "libsodium-wrappers": "^0.7.15"
+    "pngjs": "^7.0.0"
   },
-  "devDependencies": {},
   "engines": {
     "node": ">=20"
   }

@@ -1,4 +1,11 @@
 
+## v24.1.24 — UX Flow Smart Center Hotfix
+
+- Исправлены кнопки под `/me`: `Магазин`, `Профиль`, `Достижения`, `Веб-панель`.
+- Кнопки Smart Center переведены с `menu:quick:*` на `ux:quick:*`, чтобы не конфликтовать с публичным главным меню.
+- Добавлен безопасный `safeDeferUpdate` для редактирования текущей ephemeral-панели без ошибки выполнения.
+
+
 ## v24.1 User Experience Flow Upgrade
 
 - `/me` заменен на Smart User Center с динамическими Daily/Ticket/Shop действиями.

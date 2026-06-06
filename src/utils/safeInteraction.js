@@ -71,6 +71,25 @@ async function safeDefer(interaction, options = true) {
   }
 }
 
+async function safeDeferUpdate(interaction) {
+  try {
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferUpdate();
+    }
+    return true;
+  } catch (error) {
+    if (isInteractionExpired(error)) {
+      console.warn('Interaction expired or was already acknowledged during deferUpdate. Ignored.');
+      return false;
+    }
+    if (isDiscordNetworkTimeout(error)) {
+      logSoftDiscordNetworkError('deferUpdate', error);
+      return false;
+    }
+    throw error;
+  }
+}
+
 async function safeReply(interaction, payload) {
   const data = normalizePayload(payload);
 
@@ -100,6 +119,7 @@ module.exports = {
   safeReply,
   safeEdit,
   safeDefer,
+  safeDeferUpdate,
   isInteractionExpired,
   isDiscordNetworkTimeout,
   logSoftDiscordNetworkError,

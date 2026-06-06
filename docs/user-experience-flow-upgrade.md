@@ -77,3 +77,12 @@ npm run setup
 
 После обновления рекомендуется выполнить `npm run deploy`, `npm run setup` и заново опубликовать панели `/threadpanel post`, `/menu post`, `/webpanel post`.
 
+
+## v24.1.24 — Smart Center buttons hotfix
+
+Исправлена обработка кнопок в `/me`:
+
+- кнопки `Профиль`, `Магазин`, `Достижения`, `Веб-панель` теперь используют отдельный namespace `ux:quick:*`, чтобы не конфликтовать с публичными кнопками главного меню;
+- ответы Smart Center теперь редактируют текущее ephemeral-сообщение через `deferUpdate`, а не создают отдельный ответ взаимодействия;
+- `Мои списки` и возврат в Smart Center также работают через обновление текущей панели;
+- добавлен безопасный helper `safeDeferUpdate` для component-interactions.

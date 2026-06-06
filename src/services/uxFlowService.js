@@ -85,11 +85,11 @@ function nextStepForUser(data) {
 
 function buildNextStepRows(next) {
   const row = new ActionRowBuilder();
-  if (next.action === 'daily') row.addComponents(new ButtonBuilder().setCustomId('menu:quick:daily').setLabel('Получить Daily').setEmoji('🎁').setStyle(ButtonStyle.Success));
-  if (next.action === 'ticket') row.addComponents(new ButtonBuilder().setCustomId('menu:quick:ticket').setLabel('Создать тикет').setEmoji('🎫').setStyle(ButtonStyle.Primary));
-  if (next.action === 'shop') row.addComponents(new ButtonBuilder().setCustomId('menu:quick:shop').setLabel('Открыть магазин').setEmoji('🛒').setStyle(ButtonStyle.Primary));
+  if (next.action === 'daily') row.addComponents(new ButtonBuilder().setCustomId('ux:quick:daily').setLabel('Получить Daily').setEmoji('🎁').setStyle(ButtonStyle.Success));
+  if (next.action === 'ticket') row.addComponents(new ButtonBuilder().setCustomId('ux:quick:ticket').setLabel('Создать тикет').setEmoji('🎫').setStyle(ButtonStyle.Primary));
+  if (next.action === 'shop') row.addComponents(new ButtonBuilder().setCustomId('ux:quick:shop').setLabel('Открыть магазин').setEmoji('🛒').setStyle(ButtonStyle.Primary));
   if (next.action === 'topics') row.addComponents(new ButtonBuilder().setCustomId('threadpanel:open').setLabel('Создать тему').setEmoji('🧵').setStyle(ButtonStyle.Primary));
-  if (next.action === 'achievements') row.addComponents(new ButtonBuilder().setCustomId('menu:quick:achievements').setLabel('Достижения').setEmoji('🏆').setStyle(ButtonStyle.Secondary));
+  if (next.action === 'achievements') row.addComponents(new ButtonBuilder().setCustomId('ux:quick:achievements').setLabel('Достижения').setEmoji('🏆').setStyle(ButtonStyle.Secondary));
   row.addComponents(new ButtonBuilder().setCustomId('ux:my-items').setLabel('Мои списки').setEmoji('📌').setStyle(ButtonStyle.Secondary));
   return row;
 }
@@ -123,16 +123,16 @@ function buildSmartCenterPayload(discordUser) {
     .setTimestamp();
 
   const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('menu:quick:daily').setLabel(daily.ready ? 'Daily доступен' : 'Daily позже').setEmoji('🎁').setStyle(daily.ready ? ButtonStyle.Success : ButtonStyle.Secondary).setDisabled(!daily.ready),
-    new ButtonBuilder().setCustomId('menu:quick:ticket').setLabel(openTickets ? 'Мой тикет открыт' : 'Создать тикет').setEmoji('🎫').setStyle(openTickets ? ButtonStyle.Secondary : ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('menu:quick:shop').setLabel('Магазин').setEmoji('🛒').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('ux:quick:daily').setLabel(daily.ready ? 'Daily доступен' : 'Daily позже').setEmoji('🎁').setStyle(daily.ready ? ButtonStyle.Success : ButtonStyle.Secondary).setDisabled(!daily.ready),
+    new ButtonBuilder().setCustomId('ux:quick:ticket').setLabel(openTickets ? 'Мой тикет открыт' : 'Создать тикет').setEmoji('🎫').setStyle(openTickets ? ButtonStyle.Secondary : ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('ux:quick:shop').setLabel('Магазин').setEmoji('🛒').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('ux:my-items').setLabel('Мои списки').setEmoji('📌').setStyle(ButtonStyle.Secondary)
   );
 
   const row2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('menu:quick:profile').setLabel('Профиль').setEmoji('👤').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('menu:quick:achievements').setLabel('Достижения').setEmoji('🏆').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('menu:quick:webpanel').setLabel('Веб-панель').setEmoji('🌐').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('ux:quick:profile').setLabel('Профиль').setEmoji('👤').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('ux:quick:achievements').setLabel('Достижения').setEmoji('🏆').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('ux:quick:webpanel').setLabel('Веб-панель').setEmoji('🌐').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('menu:back').setLabel('Главное меню').setEmoji('🧭').setStyle(ButtonStyle.Secondary)
   );
 
@@ -157,7 +157,7 @@ function buildMyItemsPayload(user) {
     .setFooter({ text: 'ServerCore • User Flow' });
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('threadpanel:open').setLabel('Создать тему').setEmoji('🧵').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('menu:quick:ticket').setLabel('Новый тикет').setEmoji('🎫').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('ux:quick:ticket').setLabel('Новый тикет').setEmoji('🎫').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('menu:back').setLabel('Назад').setEmoji('⬅️').setStyle(ButtonStyle.Secondary)
   );
   return { embeds: [embed], components: [row] };

@@ -9,7 +9,7 @@ const { handleRoleButton, handleRoleSelect } = require('./services/rolePanel');
 const { addMessageXp } = require('./services/xpService');
 const { closeTicket, buildTicketCreateModal, buildTicketTypeSelectPayload, buildTicketReasonFromFields } = require('./services/ticketService');
 const { joinEvent, leaveEvent } = require('./services/eventService');
-const { safeDefer, safeReply, safeEdit, isDiscordNetworkTimeout, logSoftDiscordNetworkError } = require('./utils/safeInteraction');
+const { safeDefer, safeDeferUpdate, safeReply, safeEdit, isDiscordNetworkTimeout, logSoftDiscordNetworkError } = require('./utils/safeInteraction');
 const { buildUnlockedText } = require('./services/achievementService');
 const { incrementQuestProgress } = require('./services/questService');
 const { handleGamePanelButton } = require('./services/gamePanel');
@@ -390,14 +390,30 @@ client.on('interactionCreate', async interaction => {
       return;
     }
 
+    if (interaction.isButton() && interaction.customId.startsWith('ux:quick:')) {
+      const [, , kind] = interaction.customId.split(':');
+      await safeDeferUpdate(interaction);
+
+      if (kind === 'ticket') {
+        await safeEdit(interaction, buildTicketTypeSelectPayload());
+        return;
+      }
+
+      rememberUserAction(interaction.user.id, `smart_center_${kind}`, { channelId: interaction.channelId });
+      const actionKinds = new Set(['profile','profilecard','daily','balance','economy','inventory','shop','games','achievements','battlepass','webpanel','help','voice','event','lfg','suggest','apply','modpanel']);
+      const payload = actionKinds.has(kind) ? await buildUserActionPayload(interaction, kind) : buildSmartCenterPayload(interaction.user);
+      await safeEdit(interaction, payload);
+      return;
+    }
+
     if (interaction.isButton() && interaction.customId === 'ux:my-items') {
-      await safeDefer(interaction, true);
+      await safeDeferUpdate(interaction);
       await safeEdit(interaction, buildMyItemsPayload(interaction.user));
       return;
     }
 
     if (interaction.isButton() && interaction.customId === 'ux:center') {
-      await safeDefer(interaction, true);
+      await safeDeferUpdate(interaction);
       await safeEdit(interaction, buildSmartCenterPayload(interaction.user));
       return;
     }
