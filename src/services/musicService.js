@@ -18,11 +18,64 @@ const {
   NoSubscriberBehavior,
 } = require('@discordjs/voice');
 const play = require('play-dl');
+const { execFileSync } = require('child_process');
 const { addAudit } = require('./auditService');
 const { isModuleEnabled } = require('./moduleService');
 
 const queues = new Map();
 const MAX_PLAYLIST_ITEMS = Number(process.env.MUSIC_MAX_PLAYLIST_ITEMS || 15);
+
+
+function checkModuleAvailable(name) {
+  try {
+    require.resolve(name);
+    return '✅';
+  } catch (_) {
+    return '❌';
+  }
+}
+
+function checkCommandAvailable(command, args = ['--version']) {
+  try {
+    execFileSync(command, args, { stdio: 'ignore', timeout: 4000 });
+    return '✅';
+  } catch (_) {
+    return '❌';
+  }
+}
+
+function buildVoiceDiagnosePayload() {
+  const stateSummary = [];
+  stateSummary.push(`MUSIC_ENABLED: ${process.env.MUSIC_ENABLED || 'не задано'}`);
+  stateSummary.push(`MUSIC_DEBUG: ${process.env.MUSIC_DEBUG || 'не задано'}`);
+  stateSummary.push(`MUSIC_FORCE_IPV4: ${process.env.MUSIC_FORCE_IPV4 || 'не задано'}`);
+  stateSummary.push(`MUSIC_CONNECT_TIMEOUT: ${process.env.MUSIC_CONNECT_TIMEOUT || 'не задано'}`);
+
+  const modules = [
+    '@discordjs/voice',
+    '@discordjs/opus',
+    'opusscript',
+    'sodium-native',
+    'libsodium-wrappers',
+    'tweetnacl',
+    'play-dl',
+  ];
+
+  const embed = new EmbedBuilder()
+    .setColor(0x9B59B6)
+    .setTitle('🎵 Диагностика Discord Voice')
+    .setDescription('Краткая проверка окружения для музыки. Полный тест UDP доступен в терминале: `npm run voice:diagnose`.')
+    .addFields(
+      { name: '⚙️ Переменные', value: stateSummary.join('\n').slice(0, 1024), inline: false },
+      { name: '📦 Node-модули', value: modules.map(name => `${checkModuleAvailable(name)} ${name}`).join('\n'), inline: false },
+      { name: '🎚️ Системные команды', value: [`${checkCommandAvailable('ffmpeg', ['-version'])} ffmpeg`, `${checkCommandAvailable('ffprobe', ['-version'])} ffprobe`].join('\n'), inline: false },
+      { name: '🧪 Следующий шаг', value: 'Если всё отмечено ✅, зайди в voice-канал и проверь `/music play`. Если снова зависает на `signalling`, отправь поддержке Bothost вывод `npm run voice:diagnose` и логи music-подключения.' }
+    )
+    .setFooter({ text: 'ServerCore • Voice Diagnose' })
+    .setTimestamp();
+
+  return { embeds: [embed], components: [] };
+}
 
 function isMusicEnabled() {
   return String(process.env.MUSIC_ENABLED || 'true').toLowerCase() !== 'false' && isModuleEnabled('music');
@@ -409,6 +462,7 @@ module.exports = {
   isMusicEnabled,
   musicDisabledPayload,
   buildMusicStatusPayload,
+  buildVoiceDiagnosePayload,
   buildMusicPanel,
   buildPlayModal,
   buildNowPlayingEmbed,

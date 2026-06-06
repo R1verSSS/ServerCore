@@ -103,14 +103,8 @@ APPLICATIONS_CHANNEL_ID=1512791242000564229
 - Жалобы из панели заявок направляются в Forum `COMPLAINTS_CHANNEL_ID=1512791244965806170`.
 - Остальные заявки направляются в Forum `APPLICATIONS_CHANNEL_ID=1512791242000564229`.
 
-## v24.1.35 — Voice diagnose script fix
+## v24.1.37 — Music diagnose slash command
 
-- Добавлен npm-скрипт `voice:diagnose`.
-- Добавлен файл `src/tools/voice-diagnose.js`.
-- Диагностика проверяет `ffmpeg`, `@discordjs/voice`, `@discordjs/opus`, `sodium-native`, `libsodium-wrappers`, `tweetnacl`, `play-dl` и базовый UDP-probe.
-
-## v24.1.36 — Bothost Voice Build + Diagnose combined fix
-
-- Восстановлены Dockerfile build tools для `@discordjs/opus`: `python3`, `make`, `g++`, `pkg-config`, `libopus-dev`, `libsodium-dev`.
-- Сохранён `npm run voice:diagnose` и файл `src/tools/voice-diagnose.js`.
-- Добавлены проверки voice-зависимостей в Dockerfile.
+- Добавлена Discord slash-подкоманда `/music diagnose`.
+- Сохранён терминальный скрипт `npm run voice:diagnose`.
+- Сохранены Dockerfile build tools для Bothost: `python3`, `make`, `g++`, `pkg-config`, `libopus-dev`, `libsodium-dev`, `ffmpeg`.
