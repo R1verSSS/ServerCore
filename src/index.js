@@ -31,6 +31,7 @@ const { getMaintenance, isMaintenanceCommandAllowed } = require('./services/main
 const { runStartupSelfCheck } = require('./services/selfCheckService');
 const { addAudit } = require('./services/auditService');
 const { buildMeHint } = require('./commands/me');
+const { buildUserActionPayload } = require('./services/userActionService');
 const { buildHostingReadiness } = require('./services/hostingCheckService');
 const { checkInteractionAccess, checkComponentAccess, denyInteraction } = require('./services/accessControlService');
 const { buildCommandReferencePayload } = require('./services/commandReferenceService');
@@ -306,7 +307,8 @@ client.on('interactionCreate', async interaction => {
     if (interaction.isButton() && interaction.customId.startsWith('me:')) {
       await safeDefer(interaction, true);
       const [, kind] = interaction.customId.split(':');
-      await safeEdit(interaction, buildMeHint(kind));
+      const payload = await buildUserActionPayload(interaction, kind || 'profile');
+      await safeEdit(interaction, payload);
       return;
     }
 
@@ -327,7 +329,8 @@ client.on('interactionCreate', async interaction => {
         await safeEdit(interaction, { content: '📚 Документация доступна в веб-панели: `/docs`. Также смотри README-файлы проекта.', embeds: [], components: [] });
         return;
       }
-      await safeEdit(interaction, buildQuickPayload(kind));
+      const payload = await buildUserActionPayload(interaction, kind || 'profile');
+      await safeEdit(interaction, payload);
       return;
     }
 

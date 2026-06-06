@@ -1,25 +1,82 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const { getOrCreateUser, updateUser, getUsers } = require('./dataStore');
 const { awardAchievement, checkLevelAchievements, buildAchievementUnlockedEmbed } = require('./achievementService');
 const { getSettings } = require('./settingsService');
 const { applyBoostToAmount } = require('./inventoryService');
+const { addAudit } = require('./auditService');
 
-const LEVEL_ROLE_REWARDS = [
-  { level: 5, roleName: 'Уровень 5 — Активный' },
-  { level: 10, roleName: 'Уровень 10 — Свой' },
-  { level: 20, roleName: 'Уровень 20 — Легенда' }
+const DEFAULT_LEVEL_ROLE_REWARDS = [
+  { level: 5, roleName: 'Уровень 5 — Активный', color: 0x57F287 },
+  { level: 10, roleName: 'Уровень 10 — Свой', color: 0xFEE75C },
+  { level: 20, roleName: 'Уровень 20 — Легенда', color: 0xEB459E }
 ];
+
+function parseLevelRoleRewards() {
+  const raw = process.env.LEVEL_ROLE_REWARDS;
+  if (!raw) return DEFAULT_LEVEL_ROLE_REWARDS;
+
+  const parsed = raw
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean)
+    .map(item => {
+      const [levelRaw, ...roleParts] = item.split(':');
+      const level = Number(levelRaw);
+      const roleName = roleParts.join(':').trim();
+      if (!Number.isFinite(level) || level <= 0 || !roleName) return null;
+      const fallback = DEFAULT_LEVEL_ROLE_REWARDS.find(reward => reward.level === level);
+      return { level, roleName, color: fallback?.color || 0x5865F2 };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.level - b.level);
+
+  return parsed.length ? parsed : DEFAULT_LEVEL_ROLE_REWARDS;
+}
+
+const LEVEL_ROLE_REWARDS = parseLevelRoleRewards();
 
 function getRequiredXp(level) {
   return level * 100;
 }
 
+function normalizeLevelProgress(user) {
+  user.level = Math.max(Number(user.level || 1), 1);
+  user.xp = Math.max(Number(user.xp || 0), 0);
+
+  let changed = false;
+  while (user.xp >= getRequiredXp(user.level)) {
+    user.xp -= getRequiredXp(user.level);
+    user.level += 1;
+    changed = true;
+  }
+
+  return changed;
+}
+
+function normalizePersistedUser(discordId, username) {
+  const before = getOrCreateUser(discordId, username);
+  const needsNormalize = Number(before.xp || 0) >= getRequiredXp(before.level || 1) || !before.level;
+  if (!needsNormalize) return before;
+
+  return updateUser(discordId, user => {
+    user.username = username || user.username;
+    normalizeLevelProgress(user);
+    return user;
+  });
+}
+
 function getUserStats(discordId, username) {
-  return getOrCreateUser(discordId, username);
+  return normalizePersistedUser(discordId, username);
 }
 
 function getTopUsers(limit = 10) {
   return getUsers()
+    .map(user => {
+      if (Number(user.xp || 0) >= getRequiredXp(user.level || 1)) {
+        return normalizePersistedUser(user.discordId, user.username);
+      }
+      return user;
+    })
     .sort((a, b) => {
       if (b.level !== a.level) return b.level - a.level;
       if (b.xp !== a.xp) return b.xp - a.xp;
@@ -28,19 +85,67 @@ function getTopUsers(limit = 10) {
     .slice(0, limit);
 }
 
-async function tryGiveLevelRoles(member, level) {
+async function ensureLevelRole(guild, reward) {
+  let role = guild.roles.cache.find(item => item.name === reward.roleName);
+  if (role) return role;
+
+  const me = guild.members.me || await guild.members.fetchMe().catch(() => null);
+  if (!me?.permissions?.has(PermissionFlagsBits.ManageRoles) && !me?.permissions?.has(PermissionFlagsBits.Administrator)) {
+    return null;
+  }
+
+  try {
+    role = await guild.roles.create({
+      name: reward.roleName,
+      color: reward.color || 0x5865F2,
+      permissions: [],
+      reason: `ServerCore level role reward for level ${reward.level}`,
+    });
+    console.log(`[XP] Created missing level role: ${reward.roleName}`);
+    return role;
+  } catch (error) {
+    console.warn(`[XP] Could not create level role ${reward.roleName}:`, error.message);
+    return null;
+  }
+}
+
+async function syncMemberLevelRoles(member, level, options = {}) {
+  const summary = { ok: true, added: [], missing: [], failed: [] };
+  if (!member?.guild || !member?.roles?.cache) return { ...summary, ok: false, reason: 'bad_member' };
+
+  await member.guild.roles.fetch().catch(() => null);
+
   for (const reward of LEVEL_ROLE_REWARDS) {
     if (level < reward.level) continue;
 
-    const role = member.guild.roles.cache.find(item => item.name === reward.roleName);
-    if (!role || member.roles.cache.has(role.id)) continue;
+    const role = await ensureLevelRole(member.guild, reward);
+    if (!role) {
+      summary.missing.push(reward.roleName);
+      continue;
+    }
+
+    if (member.roles.cache.has(role.id)) continue;
 
     try {
-      await member.roles.add(role);
+      await member.roles.add(role, `ServerCore level reward: level ${level}`);
+      summary.added.push(role.name);
     } catch (error) {
-      console.warn(`Could not add level role ${reward.roleName} to ${member.user.tag}:`, error.message);
+      summary.failed.push({ roleName: role.name, error: error.message });
+      console.warn(`[XP] Could not add level role ${role.name} to ${member.user.tag}:`, error.message);
     }
   }
+
+  if (summary.added.length && options.audit !== false) {
+    try {
+      addAudit('level_roles_sync', member.user, {
+        level,
+        added: summary.added,
+        guildId: member.guild.id,
+      });
+    } catch (_) {}
+  }
+
+  return summary;
 }
 
 async function addXpToMember(member, amount) {
@@ -59,25 +164,17 @@ async function addXpToMember(member, amount) {
     user.username = username;
     user.xp = (user.xp || 0) + finalAmount;
     user.seasonXp = (user.seasonXp || 0) + finalAmount;
-    user.level = user.level || 1;
-
-    while (user.xp >= getRequiredXp(user.level)) {
-      user.xp -= getRequiredXp(user.level);
-      user.level += 1;
-      leveledUp = true;
-    }
-
+    const beforeLevel = Number(user.level || 1);
+    normalizeLevelProgress(user);
+    leveledUp = Number(user.level || 1) > beforeLevel;
     newLevel = user.level;
     return user;
   });
 
-  if (leveledUp) {
-    await tryGiveLevelRoles(member, newLevel);
-  }
-
+  const roleSync = await syncMemberLevelRoles(member, newLevel);
   const unlockedAchievements = checkLevelAchievements(discordId, username, newLevel);
 
-  return { user: updatedUser, leveledUp, newLevel, unlockedAchievements, addedXp: finalAmount, baseXp: amount };
+  return { user: updatedUser, leveledUp, newLevel, roleSync, unlockedAchievements, addedXp: finalAmount, baseXp: amount };
 }
 
 async function addMessageXp(message) {
@@ -96,6 +193,7 @@ async function addMessageXp(message) {
     const updatedNoXpUser = updateUser(discordId, user => {
       user.username = username;
       user.messages = (user.messages || 0) + 1;
+      normalizeLevelProgress(user);
       return user;
     });
 
@@ -111,6 +209,7 @@ async function addMessageXp(message) {
     user.username = username;
     user.messages = (user.messages || 0) + 1;
     user.lastXpAt = new Date(now).toISOString();
+    normalizeLevelProgress(user);
     return user;
   });
 
@@ -128,10 +227,11 @@ async function addMessageXp(message) {
   ];
 
   if (result.leveledUp && message.member) {
+    const roleText = result.roleSync?.added?.length ? `\n🎭 Выданы роли: **${result.roleSync.added.join(', ')}**` : '';
     const embed = new EmbedBuilder()
       .setColor(0x57F287)
       .setTitle('🎉 Новый уровень!')
-      .setDescription(`${message.author} достиг уровня **${result.newLevel}**.`)
+      .setDescription(`${message.author} достиг уровня **${result.newLevel}**.${roleText}`)
       .setFooter({ text: 'ServerCore • XP System' });
 
     try {
@@ -155,9 +255,12 @@ async function addMessageXp(message) {
 }
 
 module.exports = {
+  LEVEL_ROLE_REWARDS,
   addMessageXp,
   addXpToMember,
   getUserStats,
   getTopUsers,
-  getRequiredXp
+  getRequiredXp,
+  normalizeLevelProgress,
+  syncMemberLevelRoles,
 };

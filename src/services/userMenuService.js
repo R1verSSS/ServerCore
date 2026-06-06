@@ -12,7 +12,7 @@ function buildMainMenuPayload() {
   const embed = new EmbedBuilder()
     .setColor(MENU_COLOR)
     .setTitle('🧭 Главное меню сервера')
-    .setDescription('Здесь собраны все основные возможности сервера. Выбери раздел ниже — бот покажет понятную панель с нужными действиями.')
+    .setDescription('Здесь собраны основные возможности сервера. Выбери раздел или нажми быструю кнопку — бот выполнит действие сразу.')
     .addFields(
       { name: '👤 Профиль', value: 'Профиль, карточка, достижения, косметика.', inline: true },
       { name: '🌐 Веб-панель', value: 'Вход на сайт, пользовательская панель и аккаунт.', inline: true },
@@ -45,10 +45,10 @@ function buildMainMenuPayload() {
   const row = new ActionRowBuilder().addComponents(select);
   const buttons = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('menu:quick:profile').setLabel('Мой профиль').setEmoji('👤').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('menu:quick:daily').setLabel('Daily').setEmoji('🎁').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId('menu:quick:webpanel').setLabel('Веб-панель').setEmoji('🌐').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('menu:quick:games').setLabel('Мини-игры').setEmoji('🎲').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('menu:quick:ticket').setLabel('Помощь').setEmoji('🎫').setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId('menu:quick:daily').setLabel('Получить Daily').setEmoji('🎁').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId('menu:quick:balance').setLabel('Баланс').setEmoji('💰').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('menu:quick:shop').setLabel('Магазин').setEmoji('🛒').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('menu:quick:ticket').setLabel('Создать тикет').setEmoji('🎫').setStyle(ButtonStyle.Secondary)
   );
 
   return { embeds: [embed], components: [row, buttons] };
@@ -209,6 +209,7 @@ function buildQuickPayload(kind) {
     profile: buildSectionPayload('profile'),
     webpanel: require('./webPanelMenuService').buildWebPanelMenuPayload(),
     daily: buildSectionPayload('economy'),
+    balance: buildSectionPayload('economy'),
     shop: buildSectionPayload('economy'),
     inventory: buildSectionPayload('economy'),
     profilecard: buildSectionPayload('profile'),

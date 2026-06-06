@@ -6,7 +6,7 @@ function buildMePayload(discordUser, profile) {
   const embed = new EmbedBuilder()
     .setColor(0x5865F2)
     .setTitle(`👤 Центр участника: ${discordUser.username}`)
-    .setDescription('Здесь собраны основные действия пользователя. Нажми кнопку, чтобы получить краткую подсказку по нужному разделу.')
+    .setDescription('Здесь собраны основные действия пользователя. Нажми кнопку — бот сразу выполнит действие или откроет нужную панель.')
     .setThumbnail(discordUser.displayAvatarURL?.() || null)
     .addFields(
       { name: 'Уровень', value: String(profile.level || 1), inline: true },
@@ -20,7 +20,7 @@ function buildMePayload(discordUser, profile) {
     .setTimestamp();
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('me:profile').setLabel('Профиль').setEmoji('👤').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('me:economy').setLabel('Экономика').setEmoji('💰').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('me:balance').setLabel('Баланс').setEmoji('💰').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('me:inventory').setLabel('Инвентарь').setEmoji('🎒').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('me:battlepass').setLabel('Battle Pass').setEmoji('🎟').setStyle(ButtonStyle.Secondary)
   );
@@ -28,7 +28,7 @@ function buildMePayload(discordUser, profile) {
     new ButtonBuilder().setCustomId('me:achievements').setLabel('Достижения').setEmoji('🏆').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('me:voice').setLabel('Voice').setEmoji('🔊').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('me:support').setLabel('Поддержка').setEmoji('🎫').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('me:help').setLabel('Помощь').setEmoji('📚').setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId('me:help').setLabel('Справка').setEmoji('📚').setStyle(ButtonStyle.Secondary)
   );
   return { embeds: [embed], components: [row1, row2] };
 }
