@@ -1,13 +1,17 @@
 async function safeYoutubeValidate(url) {
   try {
     const result = play.yt_validate(url);
-    if (result && typeof result.then === 'function') {
-      return await result;
-    }
+    if (result && typeof result.then === 'function') return await result;
     return result;
-  } catch (error) {
+  } catch (_) {
     return false;
   }
+}
+
+function normalizeTrackUrl(value, fallback = '') {
+  const url = String(value || fallback || '').trim();
+  if (!url || url === 'undefined' || url === 'null') return '';
+  return url;
 }
 
 const {
@@ -157,32 +161,46 @@ function isYoutubeUrl(url = '') {
 }
 
 async function resolveUrl(url, requestedBy) {
-  if (!isYoutubeUrl(url)) {
+  const inputUrl = normalizeTrackUrl(url);
+  if (!inputUrl || !isYoutubeUrl(inputUrl)) {
     return { ok: false, reason: 'only_youtube' };
   }
 
-  const validation = await safeYoutubeValidate(url);
+  const validation = await safeYoutubeValidate(inputUrl);
   if (!validation) return { ok: false, reason: 'invalid_url' };
 
   if (validation === 'playlist') {
-    const playlist = await play.playlist_info(url, { incomplete: true });
+    const playlist = await play.playlist_info(inputUrl, { incomplete: true });
     const videos = await playlist.all_videos();
-    const items = videos.slice(0, MAX_PLAYLIST_ITEMS).map(video => ({
-      title: video.title || 'YouTube audio',
-      url: video.url,
-      duration: video.durationRaw || '—',
-      requestedBy,
-    }));
+    const items = videos
+      .slice(0, MAX_PLAYLIST_ITEMS)
+      .map(video => {
+        const itemUrl = normalizeTrackUrl(video.url, video?.url || inputUrl);
+        return {
+          title: video.title || 'YouTube audio',
+          url: itemUrl,
+          duration: video.durationRaw || '—',
+          requestedBy,
+        };
+      })
+      .filter(item => item.url && isYoutubeUrl(item.url));
+
+    if (!items.length) return { ok: false, reason: 'no_valid_tracks' };
     return { ok: true, items, playlistTitle: playlist.title || 'YouTube playlist' };
   }
 
-  const info = await play.video_info(url);
-  const details = info.video_details;
+  const info = await play.video_info(inputUrl);
+  const details = info.video_details || {};
+  const videoUrl = normalizeTrackUrl(details.url, inputUrl);
+  if (!videoUrl || !isYoutubeUrl(videoUrl)) {
+    return { ok: false, reason: 'invalid_url' };
+  }
+
   return {
     ok: true,
     items: [{
       title: details.title || 'YouTube audio',
-      url: details.url || url,
+      url: videoUrl,
       duration: details.durationRaw || '—',
       requestedBy,
     }]
@@ -258,20 +276,23 @@ async function enqueue(interaction, url) {
   const resolved = await resolveUrl(url, interaction.user.username || interaction.user.tag);
   if (!resolved.ok) return resolved;
 
-  connect.state.queue.push(...resolved.items);
+  const validItems = (resolved.items || []).filter(item => item?.url && isYoutubeUrl(item.url));
+  if (!validItems.length) return { ok: false, reason: 'no_valid_tracks' };
+
+  connect.state.queue.push(...validItems);
   addAudit('music_enqueue', interaction.user, {
     guildId: interaction.guildId,
     channelId: interaction.channelId,
     voiceChannelId: connect.voiceChannel.id,
-    count: resolved.items.length,
-    firstTitle: resolved.items[0]?.title,
+    count: validItems.length,
+    firstTitle: validItems[0]?.title,
   });
 
   if (!connect.state.current && connect.state.player.state.status !== AudioPlayerStatus.Playing) {
     await playNext(connect.state);
   }
 
-  return { ok: true, state: connect.state, added: resolved.items, playlistTitle: resolved.playlistTitle || null };
+  return { ok: true, state: connect.state, added: validItems, playlistTitle: resolved.playlistTitle || null };
 }
 
 async function playNext(state) {
@@ -282,15 +303,34 @@ async function playNext(state) {
     return;
   }
 
+  if (!next.url || !isYoutubeUrl(next.url)) {
+    console.warn('[Music] Пропущен трек без корректного URL:', {
+      title: next.title,
+      url: next.url,
+    });
+    return playNext(state);
+  }
+
   state.current = next;
   state.playing = true;
 
-  const stream = await play.stream(next.url);
-  const resource = createAudioResource(stream.stream, {
-    inputType: stream.type,
-    metadata: next,
-  });
-  state.player.play(resource);
+  try {
+    const stream = await play.stream(next.url);
+    const resource = createAudioResource(stream.stream, {
+      inputType: stream.type,
+      metadata: next,
+    });
+    state.player.play(resource);
+  } catch (error) {
+    console.error('[Music] Не удалось открыть аудиопоток:', {
+      title: next.title,
+      url: next.url,
+      error: error?.message || error,
+    });
+    state.current = null;
+    state.playing = false;
+    return playNext(state);
+  }
 }
 
 function getQueue(guildId) {

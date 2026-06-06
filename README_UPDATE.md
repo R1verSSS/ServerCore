@@ -109,7 +109,8 @@ APPLICATIONS_CHANNEL_ID=1512791242000564229
 - Сохранён терминальный скрипт `npm run voice:diagnose`.
 - Сохранены Dockerfile build tools для Bothost: `python3`, `make`, `g++`, `pkg-config`, `libopus-dev`, `libsodium-dev`, `ffmpeg`.
 
-## v24.1.39 — Music modal play-dl validation fix
+## v24.1.40 — Music undefined URL stream fix
 
-- Исправлен оставшийся вызов `play.yt_validate(...).catch(...)` в `musicService.js`.
-- Проверка YouTube-ссылки теперь работает одинаково для slash-команды и modal-формы.
+- Исправлено попадание `undefined` вместо YouTube URL в `play.stream()`.
+- Добавлена нормализация URL треков для обычных видео и playlist.
+- Добавлена защита `playNext()` от пустых/некорректных URL, чтобы бот не падал.
