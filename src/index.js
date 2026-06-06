@@ -7,7 +7,7 @@ const dns = require('node:dns');
 const { Client, Collection, GatewayIntentBits, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { handleRoleButton, handleRoleSelect } = require('./services/rolePanel');
 const { addMessageXp } = require('./services/xpService');
-const { closeTicket } = require('./services/ticketService');
+const { closeTicket, buildTicketCreateModal, buildTicketTypeSelectPayload, buildTicketReasonFromFields } = require('./services/ticketService');
 const { joinEvent, leaveEvent } = require('./services/eventService');
 const { safeDefer, safeReply, safeEdit, isDiscordNetworkTimeout, logSoftDiscordNetworkError } = require('./utils/safeInteraction');
 const { buildUnlockedText } = require('./services/achievementService');
@@ -39,7 +39,7 @@ const { handleShopButton, handleShopSelect } = require('./services/shopPanel');
 const { handleProtectedChannelMessage } = require('./services/protectedChannelService');
 const { handleMusicButton, handleMusicModal } = require('./services/musicService');
 const { buildWebPanelHelpPayload } = require('./services/webPanelMenuService');
-const { buildThreadHelpPayload, buildThreadCreateModal, createForumThreadFromModal } = require('./services/threadForumService');
+const { buildThreadPanel, buildThreadHelpPayload, buildThreadCreateModal, createForumThreadFromModal } = require('./services/threadForumService');
 const { buildBotQuickMenuPanel, buildBotQuickSectionPayload } = require('./services/botQuickMenuService');
 const { buildSmartCenterPayload, buildMyItemsPayload, rememberUserAction, buildAfterActionPayload } = require('./services/uxFlowService');
 
@@ -235,6 +235,45 @@ client.on('interactionCreate', async interaction => {
     }
 
 
+
+    if (interaction.isButton() && interaction.customId === 'threadpanel:open') {
+      await safeReply(interaction, { ...buildThreadPanel(), ephemeral: true });
+      return;
+    }
+
+    if (interaction.isButton() && interaction.customId === 'ticket:create') {
+      await safeReply(interaction, buildTicketTypeSelectPayload());
+      return;
+    }
+
+    if (interaction.isStringSelectMenu() && interaction.customId === 'ticket:create_select') {
+      const templateId = interaction.values?.[0] || 'other';
+      await interaction.showModal(buildTicketCreateModal(templateId));
+      return;
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('ticket:modal:create:')) {
+      await safeDefer(interaction, true);
+      const templateId = interaction.customId.split(':')[3] || 'other';
+      const summary = interaction.fields.getTextInputValue('summary');
+      const details = interaction.fields.getTextInputValue('details');
+      const priority = interaction.fields.getTextInputValue('priority') || 'normal';
+      const reason = buildTicketReasonFromFields(templateId, summary, details);
+      const { createTicket } = require('./services/ticketService');
+      const result = await createTicket(interaction, reason, { templateId, priority }).catch(error => ({ ok: false, reason: error.message }));
+      if (result.ok) {
+        rememberUserAction(interaction.user.id, 'ticket_created', { ticketId: result.ticket?.id, channelId: result.channel?.id, templateId, source: 'discord_modal' });
+        await safeEdit(interaction, buildAfterActionPayload(interaction.user, 'ticket', `✅ Тикет создан: ${result.channel}`));
+        return;
+      }
+      if (result.reason === 'already_open') {
+        await safeEdit(interaction, { content: `⚠️ У тебя уже есть открытый тикет: ${result.channel || 'канал не найден'}`, embeds: [], components: [] });
+        return;
+      }
+      await safeEdit(interaction, { content: `❌ Не удалось создать тикет: ${result.reason || 'неизвестная ошибка'}`, embeds: [], components: [] });
+      return;
+    }
+
     if (interaction.isStringSelectMenu() && interaction.customId === 'threadpanel:create_select') {
       const type = interaction.values?.[0] || 'member_topic';
       await interaction.showModal(buildThreadCreateModal(type));
@@ -370,8 +409,12 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (interaction.isButton() && interaction.customId.startsWith('menu:quick:')) {
-      await safeDefer(interaction, true);
       const [, , kind] = interaction.customId.split(':');
+      if (kind === 'ticket') {
+        await safeReply(interaction, buildTicketTypeSelectPayload());
+        return;
+      }
+      await safeDefer(interaction, true);
       if (kind === 'health') {
         await safeEdit(interaction, { content: '🩺 Диагностика доступна через `/dbstatus` и веб-панель `/health`.', embeds: [], components: [] });
         return;

@@ -18,7 +18,7 @@ const { createBackup, listBackups, restoreBackup, deleteBackup, exportData, clea
 const { buildHealthReport, formatHealthLines } = require('../services/healthCheckService');
 const { buildMainMenuPayload } = require('../services/userMenuService');
 const { buildWebPanelMenuPayload, getWebPanelUrl } = require('../services/webPanelMenuService');
-const { buildThreadPanel, getForumOptions } = require('../services/threadForumService');
+const { buildThreadPanel, getForumOptions, THREAD_FORUMS, createForumThread } = require('../services/threadForumService');
 const { buildBotQuickMenuPanel } = require('../services/botQuickMenuService');
 const { SETTINGS_DESCRIPTIONS } = require('../services/settingsService');
 const { listAudit, addAudit } = require('../services/auditService');
@@ -373,14 +373,17 @@ function startWebPanel(client) {
     const db = readDatabase();
     const tickets = Object.values(db.tickets || {}).filter(t => t.userId === req.webAuth.userId || t.authorId === req.webAuth.userId).sort((a,b)=>Number(b.id)-Number(a.id));
     const rows = tickets.map(t => `<tr><td>#${t.id}</td><td>${escapeHtml(t.status || 'open')}</td><td>${escapeHtml(t.priority || 'normal')}</td><td>${escapeHtml(t.reason || '—')}</td><td>${escapeHtml(t.createdAt || '')}</td></tr>`).join('');
-    res.send(userLayout('Мои тикеты', `<div class="card"><h2>🎫 Мои тикеты</h2><table><tr><th>ID</th><th>Статус</th><th>Приоритет</th><th>Причина</th><th>Дата</th></tr>${rows || '<tr><td colspan="5">Тикетов пока нет.</td></tr>'}</table></div>`, req.webAuth, req.query.message));
+    const form = `<div class="card"><h2>➕ Создать тикет</h2><p class="muted">Укажи тип, приоритет и подробное описание. После отправки бот создаст закрытый Discord-канал для общения с администрацией.</p><form method="post" action="/user-actions/ticket"><select name="templateId"><option value="support">Поддержка</option><option value="bug">Баг / ошибка</option><option value="report">Жалоба</option><option value="shop">Магазин / покупка</option><option value="other">Другое</option></select><select name="priority"><option value="low">Низкий</option><option value="normal" selected>Обычный</option><option value="high">Высокий</option><option value="urgent">Срочный</option></select><input name="summary" maxlength="100" required placeholder="Краткая тема обращения"/><textarea name="details" required placeholder="Опиши проблему подробно: что произошло, где, когда, что уже пробовал."></textarea><button>Создать тикет</button></form></div>`;
+    res.send(userLayout('Мои тикеты', `<div class="grid-2">${form}<div class="card"><h2>🎫 Мои тикеты</h2><table><tr><th>ID</th><th>Статус</th><th>Приоритет</th><th>Причина</th><th>Дата</th></tr>${rows || '<tr><td colspan="5">Тикетов пока нет.</td></tr>'}</table></div></div>`, req.webAuth, req.query.message));
   });
 
 
   app.get('/my-topics', (req, res) => {
     const data = getUserFlowData(req.webAuth.userId);
     const rows = data.topics.map(t => `<tr><td><b>${escapeHtml(t.title || 'Тема')}</b><div class="small muted">${escapeHtml(t.type || '')}</div></td><td>${escapeHtml(t.forumName || '—')}</td><td>${t.threadId ? `<span class="pill">${escapeHtml(t.threadId)}</span>` : '—'}</td><td>${escapeHtml(t.status || 'open')}</td><td>${escapeHtml(t.createdAt || '')}</td></tr>`).join('');
-    res.send(userLayout('Мои темы', `<div class="card"><h2>🧵 Мои темы</h2><p class="muted">Здесь отображаются forum-темы, созданные через панель тем.</p><table><tr><th>Тема</th><th>Forum</th><th>Thread ID</th><th>Статус</th><th>Дата</th></tr>${rows || '<tr><td colspan="5">Тем пока нет.</td></tr>'}</table></div>`, req.webAuth));
+    const typeOptions = Object.entries(THREAD_FORUMS).map(([id, cfg]) => `<option value="${escapeHtml(id)}">${escapeHtml(`${cfg.emoji} ${cfg.label}`)}</option>`).join('');
+    const form = `<div class="card"><h2>➕ Создать forum-тему</h2><p class="muted">Покупки не нужны. Достаточно выбрать тип темы, указать название и описание. Бот создаст forum-пост в подходящем канале.</p><form method="post" action="/user-actions/topic"><select name="type">${typeOptions}</select><input name="title" maxlength="90" required placeholder="Название темы"/><textarea name="body" required placeholder="Описание темы: вопрос, идея, проект или что нужно обсудить."></textarea><button>Создать тему</button></form></div>`;
+    res.send(userLayout('Мои темы', `<div class="grid-2">${form}<div class="card"><h2>🧵 Мои темы</h2><p class="muted">Здесь отображаются forum-темы, созданные через Discord или веб-панель.</p><table><tr><th>Тема</th><th>Forum</th><th>Thread ID</th><th>Статус</th><th>Дата</th></tr>${rows || '<tr><td colspan="5">Тем пока нет.</td></tr>'}</table></div></div>`, req.webAuth, req.query.message));
   });
 
   app.get('/my-applications', (req, res) => {
@@ -399,6 +402,11 @@ function startWebPanel(client) {
   app.post('/user-actions/ticket', async (req, res) => {
     const guild = getGuild(client);
     if (!guild) return res.redirect(`/my-tickets?message=${encodeURIComponent('Сервер Discord не найден. Попробуй создать тикет через /ticket.')}`);
+    const templateId = String(req.body.templateId || 'other');
+    const priority = String(req.body.priority || 'normal');
+    const summary = String(req.body.summary || '').trim().slice(0, 100);
+    const details = String(req.body.details || '').trim().slice(0, 1600);
+    if (!summary || !details) return res.redirect(`/my-tickets?message=${encodeURIComponent('Укажи тему и описание тикета.')}`);
     const fakeInteraction = {
       guild,
       user: {
@@ -408,11 +416,22 @@ function startWebPanel(client) {
         toString() { return `<@${req.webAuth.userId}>`; }
       }
     };
-    const result = await createTicket(fakeInteraction, '🌐 Создано из пользовательской веб-панели', { templateId: 'web', priority: 'normal' }).catch(error => ({ ok: false, reason: error.message }));
-    logWebUserAction(req.webAuth.userId, 'ticket_request_from_web', { ok: result.ok, reason: result.reason || '', channelId: result.channel?.id, source: 'web-panel' });
+    const reason = [`🌐 ${summary}`, '', details].join('\n').slice(0, 1800);
+    const result = await createTicket(fakeInteraction, reason, { templateId, priority }).catch(error => ({ ok: false, reason: error.message }));
+    logWebUserAction(req.webAuth.userId, 'ticket_request_from_web', { ok: result.ok, reason: result.reason || '', channelId: result.channel?.id, templateId, priority, source: 'web-panel' });
     if (result.ok) return res.redirect(`/my-tickets?message=${encodeURIComponent(`Тикет создан: ${result.channel?.name || result.ticket?.id}.`)}`);
     if (result.reason === 'already_open') return res.redirect(`/my-tickets?message=${encodeURIComponent('У тебя уже есть открытый тикет.')}`);
     res.redirect(`/my-tickets?message=${encodeURIComponent('Не удалось создать тикет из веб-панели. Попробуй /ticket в Discord.')}`);
+  });
+
+  app.post('/user-actions/topic', async (req, res) => {
+    const guild = getGuild(client);
+    if (!guild) return res.redirect(`/my-topics?message=${encodeURIComponent('Сервер Discord не найден. Попробуй создать тему через /threadpanel.')}`);
+    const user = { id: req.webAuth.userId, username: req.webAuth.label || req.webAuth.userId, tag: req.webAuth.label || req.webAuth.userId };
+    const result = await createForumThread(guild, user, String(req.body.type || 'member_topic'), req.body.title, req.body.body).catch(error => ({ ok: false, reason: error.message, message: error.message }));
+    logWebUserAction(req.webAuth.userId, 'forum_topic_from_web', { ok: result.ok, reason: result.reason || '', threadId: result.thread?.id, source: 'web-panel' });
+    if (result.ok) return res.redirect(`/my-topics?message=${encodeURIComponent(`Тема создана: ${result.thread?.name || result.thread?.id}.`)}`);
+    res.redirect(`/my-topics?message=${encodeURIComponent(result.message || 'Не удалось создать forum-тему. Проверь, что выполнен npm run setup.')}`);
   });
 
   app.get('/my-events', (req, res) => {

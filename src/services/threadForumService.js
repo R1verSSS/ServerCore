@@ -158,38 +158,46 @@ function buildThreadCreateModal(type) {
     );
 }
 
-async function createForumThreadFromModal(interaction, type) {
+async function createForumThread(guild, user, type, title, body) {
   const cfg = getThreadForumConfig(type);
-  const forum = findForum(interaction.guild, type);
+  const forum = findForum(guild, type);
   if (!forum) {
     return { ok: false, reason: 'forum_not_found', message: `❌ Forum-канал **${cfg.channelName}** не найден. Администратору нужно выполнить \`npm run setup\`.` };
   }
 
-  const title = interaction.fields.getTextInputValue('title').trim().slice(0, 90);
-  const body = interaction.fields.getTextInputValue('body').trim().slice(0, 1800);
+  const safeTitle = String(title || '').trim().slice(0, 90);
+  const safeBody = String(body || '').trim().slice(0, 1800);
+  if (!safeTitle || !safeBody) return { ok: false, reason: 'bad_input', message: '❌ Укажи название и описание темы.' };
+
   const tagName = cfg.tags?.[0];
   const tag = forum.availableTags?.find(item => item.name === tagName);
   const appliedTags = tag ? [tag.id] : [];
 
   const embed = new EmbedBuilder()
     .setColor(0x5865F2)
-    .setTitle(`${cfg.emoji} ${title}`.slice(0, 256))
-    .setDescription(body)
-    .addFields({ name: 'Автор', value: `<@${interaction.user.id}>`, inline: true }, { name: 'Тип', value: cfg.label, inline: true })
+    .setTitle(`${cfg.emoji} ${safeTitle}`.slice(0, 256))
+    .setDescription(safeBody)
+    .addFields({ name: 'Автор', value: `<@${user.id}>`, inline: true }, { name: 'Тип', value: cfg.label, inline: true })
     .setTimestamp();
 
   const thread = await forum.threads.create({
-    name: title,
-    message: { content: `<@${interaction.user.id}> создал тему.`, embeds: [embed] },
+    name: safeTitle,
+    message: { content: `<@${user.id}> создал тему.`, embeds: [embed] },
     appliedTags,
-    reason: `Forum topic created by ${interaction.user.tag}`,
+    reason: `Forum topic created by ${user.tag || user.username || user.id}`,
   });
 
-  addAudit('forum_thread_create', interaction.user, { type, forumId: forum.id, forumName: forum.name, threadId: thread.id, title });
-  recordForumThread({ userId: interaction.user.id, username: interaction.user.username, threadId: thread.id, forumId: forum.id, forumName: forum.name, type, title });
-  rememberUserAction(interaction.user.id, 'topic_created', { type, threadId: thread.id, title });
-  awardAchievement(interaction.user.id, interaction.user.username, 'first_forum_topic');
+  addAudit('forum_thread_create', user, { type, forumId: forum.id, forumName: forum.name, threadId: thread.id, title: safeTitle });
+  recordForumThread({ userId: user.id, username: user.username || user.tag || user.id, threadId: thread.id, forumId: forum.id, forumName: forum.name, type, title: safeTitle });
+  rememberUserAction(user.id, 'topic_created', { type, threadId: thread.id, title: safeTitle });
+  awardAchievement(user.id, user.username || user.tag || user.id, 'first_forum_topic');
   return { ok: true, thread, message: `✅ Тема создана: <#${thread.id}>\n\n🧭 Что дальше: открой \`/me\`, чтобы увидеть тему в разделе **Мои темы**.` };
+}
+
+async function createForumThreadFromModal(interaction, type) {
+  const title = interaction.fields.getTextInputValue('title');
+  const body = interaction.fields.getTextInputValue('body');
+  return createForumThread(interaction.guild, interaction.user, type, title, body);
 }
 
 async function ensureForumChannel(guild, category, cfg) {
@@ -217,5 +225,6 @@ module.exports = {
   buildThreadHelpPayload,
   buildThreadCreateModal,
   createForumThreadFromModal,
+  createForumThread,
   ensureForumChannel,
 };

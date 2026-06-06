@@ -88,6 +88,7 @@ function buildNextStepRows(next) {
   if (next.action === 'daily') row.addComponents(new ButtonBuilder().setCustomId('menu:quick:daily').setLabel('Получить Daily').setEmoji('🎁').setStyle(ButtonStyle.Success));
   if (next.action === 'ticket') row.addComponents(new ButtonBuilder().setCustomId('menu:quick:ticket').setLabel('Создать тикет').setEmoji('🎫').setStyle(ButtonStyle.Primary));
   if (next.action === 'shop') row.addComponents(new ButtonBuilder().setCustomId('menu:quick:shop').setLabel('Открыть магазин').setEmoji('🛒').setStyle(ButtonStyle.Primary));
+  if (next.action === 'topics') row.addComponents(new ButtonBuilder().setCustomId('threadpanel:open').setLabel('Создать тему').setEmoji('🧵').setStyle(ButtonStyle.Primary));
   if (next.action === 'achievements') row.addComponents(new ButtonBuilder().setCustomId('menu:quick:achievements').setLabel('Достижения').setEmoji('🏆').setStyle(ButtonStyle.Secondary));
   row.addComponents(new ButtonBuilder().setCustomId('ux:my-items').setLabel('Мои списки').setEmoji('📌').setStyle(ButtonStyle.Secondary));
   return row;
@@ -155,7 +156,8 @@ function buildMyItemsPayload(user) {
     )
     .setFooter({ text: 'ServerCore • User Flow' });
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('menu:quick:ticket').setLabel('Новый тикет').setEmoji('🎫').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('threadpanel:open').setLabel('Создать тему').setEmoji('🧵').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('menu:quick:ticket').setLabel('Новый тикет').setEmoji('🎫').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('menu:back').setLabel('Назад').setEmoji('⬅️').setStyle(ButtonStyle.Secondary)
   );
   return { embeds: [embed], components: [row] };

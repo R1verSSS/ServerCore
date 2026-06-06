@@ -5,6 +5,10 @@ const {
   ChannelType,
   EmbedBuilder,
   PermissionFlagsBits,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  StringSelectMenuBuilder,
 } = require('discord.js');
 const { readDatabase, writeDatabase } = require('./dataStore');
 const { awardAchievement } = require('./achievementService');
@@ -12,6 +16,76 @@ const { awardAchievement } = require('./achievementService');
 const ADMIN_ROLE_NAMES = ['👑 Owner', '🛡 Admin', '👮 Moderator'];
 const LOG_CHANNEL_NAME = '🛡・лог-модерации';
 const MOD_CATEGORY_NAME = '🛡 МОДЕРАЦИЯ';
+
+const TICKET_TEMPLATES = {
+  support: { label: 'Поддержка', emoji: '🆘', hint: 'Опиши вопрос или проблему, с которой нужна помощь.' },
+  bug: { label: 'Баг / ошибка', emoji: '🐞', hint: 'Что сломалось, где это видно, как повторить?' },
+  report: { label: 'Жалоба', emoji: '⚠️', hint: 'На кого жалоба, что произошло, есть ли доказательства?' },
+  shop: { label: 'Магазин / покупка', emoji: '🛒', hint: 'Что покупал, когда, что не выдалось?' },
+  other: { label: 'Другое', emoji: '📌', hint: 'Кратко опиши обращение.' },
+};
+
+function getTicketTemplate(templateId = 'other') {
+  return TICKET_TEMPLATES[templateId] || TICKET_TEMPLATES.other;
+}
+
+function buildTicketCreateModal(templateId = 'other') {
+  const tpl = getTicketTemplate(templateId);
+  return new ModalBuilder()
+    .setCustomId(`ticket:modal:create:${templateId}`)
+    .setTitle(`${tpl.emoji} Новый тикет`.slice(0, 45))
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId('summary')
+          .setLabel('Краткая тема обращения')
+          .setPlaceholder('Например: не выдалась роль после покупки')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setMaxLength(100)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId('details')
+          .setLabel('Описание проблемы')
+          .setPlaceholder(tpl.hint)
+          .setStyle(TextInputStyle.Paragraph)
+          .setRequired(true)
+          .setMaxLength(1600)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId('priority')
+          .setLabel('Приоритет: low / normal / high / urgent')
+          .setPlaceholder('normal')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(false)
+          .setMaxLength(20)
+      )
+    );
+}
+
+function buildTicketTypeSelectPayload() {
+  const embed = new EmbedBuilder()
+    .setColor(0x5865F2)
+    .setTitle('🎫 Создание тикета')
+    .setDescription('Выбери тип обращения. После выбора откроется форма, где можно указать тему, описание и приоритет.');
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId('ticket:create_select')
+    .setPlaceholder('Выбери тип тикета')
+    .addOptions(Object.entries(TICKET_TEMPLATES).map(([value, cfg]) => ({
+      label: cfg.label,
+      value,
+      emoji: cfg.emoji,
+      description: cfg.hint.slice(0, 95),
+    })));
+  return { embeds: [embed], components: [new ActionRowBuilder().addComponents(menu)] };
+}
+
+function buildTicketReasonFromFields(templateId, summary, details) {
+  const tpl = getTicketTemplate(templateId);
+  return [`${tpl.emoji} ${tpl.label}: ${summary}`.slice(0, 180), '', String(details || '').trim()].filter(Boolean).join('\n').slice(0, 1800);
+}
 
 function ensureTicketStore(db) {
   if (!db.tickets) db.tickets = {};
@@ -324,6 +398,10 @@ module.exports = {
   updateTicketRecord,
   normalizePriority,
   priorityLabel,
+  TICKET_TEMPLATES,
+  buildTicketCreateModal,
+  buildTicketTypeSelectPayload,
+  buildTicketReasonFromFields,
   createTicket,
   closeTicket,
   getOpenTicketByChannel,
