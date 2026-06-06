@@ -52,3 +52,11 @@ npm start
 Причина была не в отсутствии панелей, а в том, что быстрые действия Smart Center вызывали `syncMemberLevelRoles`, который использовался в `userActionService`, но не экспортировался из `xpService`. Из-за этого обработчик падал до построения нужной панели.
 
 После обновления заново запустите бота и вызовите новую команду `/me`. Старые уже отправленные сообщения можно удалить.
+
+## v24.1.28 — SQLite migration + Forum applications channel
+
+- Добавлена поддержка SQLite на Node.js 20 через `better-sqlite3`.
+- `DB_DRIVER=sqlite` теперь реально переводит сохраняемые данные из JSON в `data/database.sqlite`.
+- Команда `npm run db:migrate` переносит текущее состояние из `data/database.json` в SQLite.
+- Добавлена поддержка `APPLICATIONS_CHANNEL_ID=1512791242000564229` для Forum-канала заявок.
+- Self-check теперь принимает Forum-канал заявок как корректный канал.

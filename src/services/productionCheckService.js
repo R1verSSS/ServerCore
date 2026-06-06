@@ -20,7 +20,7 @@ async function buildProductionReport(client, options = {}) {
   checks.push(check(Boolean(process.env.DISCORD_TOKEN), 'DISCORD_TOKEN задан', 'Токен должен храниться только в переменных хостинга.'));
   checks.push(check(Boolean(client?.user?.id), 'Бот авторизован в Discord', client?.user?.tag || ''));
   checks.push(check(hosting.okCount >= Math.max(1, hosting.total - 1), `Готовность к хостингу ${hosting.okCount}/${hosting.total}`, 'Проверь /hosting при предупреждениях.'));
-  checks.push(check(storage.driver === 'json' || storage.driver === 'sqlite', `База активна: ${storage.driver}`, storage.driver === 'json' ? 'Для Bothost это ожидаемый режим.' : storage.sqlitePath));
+  checks.push(check(storage.driver === 'sqlite', `База активна: ${storage.driver}${storage.sqliteEngine ? ` (${storage.sqliteEngine})` : ''}`, storage.driver === 'sqlite' ? storage.sqlitePath : `SQLite fallback: ${storage.sqliteUnavailableReason || 'JSON'}`));
   checks.push(check(fs.existsSync(path.join(process.cwd(), 'data')), 'Папка data доступна'));
   checks.push(check(fs.existsSync(path.join(process.cwd(), 'data', 'backups')), 'Папка data/backups доступна'));
   checks.push(check(backups.length > 0, 'Есть хотя бы один backup', 'Создай /backup create name:hosting-stable'));

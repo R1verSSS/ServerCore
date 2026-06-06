@@ -9,6 +9,16 @@ const { readDatabase, writeDatabase } = require('./dataStore');
 const { getSettings } = require('./settingsService');
 const { findTextChannelByName } = require('./logService');
 
+function findApplicationChannel(guild, name) {
+  const allowedTypes = new Set([ChannelType.GuildText, ChannelType.GuildForum, ChannelType.GuildAnnouncement]);
+  const configuredId = process.env.APPLICATIONS_CHANNEL_ID;
+  if (configuredId) {
+    const byId = guild?.channels?.cache?.get(String(configuredId));
+    if (byId && allowedTypes.has(byId.type)) return byId;
+  }
+  return guild?.channels?.cache?.find(ch => allowedTypes.has(ch.type) && ch.name === name) || findTextChannelByName(guild, name);
+}
+
 const APPLICATION_TYPES = {
   moderator: {
     label: 'Заявка в модераторы',
@@ -160,7 +170,7 @@ function buildApplicationEmbed(app) {
 
 async function publishApplication(guild, app) {
   const settings = getSettings();
-  let channel = guild?.channels?.cache?.find(ch => ch.name === (settings.applicationsChannelName || '📨・заявки')) || findTextChannelByName(guild, settings.applicationsChannelName || '📨・заявки');
+  let channel = findApplicationChannel(guild, settings.applicationsChannelName || '📨・заявки');
   if (!channel) {
     const category = guild.channels.cache.find(item => item.type === ChannelType.GuildCategory && item.name.includes('МОДЕРАЦ'));
     channel = await guild.channels.create({

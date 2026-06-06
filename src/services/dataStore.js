@@ -88,6 +88,7 @@ const EMPTY_DB = {
 };
 
 let sqlite = null;
+let sqliteEngine = null;
 let sqliteUnavailableReason = null;
 
 function clone(value) {
@@ -164,50 +165,86 @@ function ensureDataDir() {
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 }
 
+function createSqliteConnection() {
+  const errors = [];
+
+  try {
+    const { DatabaseSync } = require('node:sqlite');
+    const db = new DatabaseSync(sqlitePath);
+    sqliteEngine = 'node:sqlite';
+    return db;
+  } catch (error) {
+    errors.push(`node:sqlite: ${error.message}`);
+  }
+
+  try {
+    const BetterSqlite3 = require('better-sqlite3');
+    const db = new BetterSqlite3(sqlitePath);
+    db.pragma('journal_mode = WAL');
+    db.pragma('busy_timeout = 5000');
+    sqliteEngine = 'better-sqlite3';
+    return db;
+  } catch (error) {
+    errors.push(`better-sqlite3: ${error.message}`);
+  }
+
+  sqliteUnavailableReason = errors.join(' | ');
+  return null;
+}
+
+function initializeSqliteSchema(database) {
+  database.exec(`
+    PRAGMA journal_mode = WAL;
+    PRAGMA busy_timeout = 5000;
+    CREATE TABLE IF NOT EXISTS app_state (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS users (
+      discord_id TEXT PRIMARY KEY,
+      username TEXT,
+      xp INTEGER DEFAULT 0,
+      level INTEGER DEFAULT 1,
+      messages INTEGER DEFAULT 0,
+      coins INTEGER DEFAULT 0,
+      reputation INTEGER DEFAULT 0,
+      season_xp INTEGER DEFAULT 0,
+      clan_id TEXT,
+      last_xp_at TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      data_json TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      action TEXT NOT NULL,
+      details TEXT,
+      created_at TEXT NOT NULL
+    );
+  `);
+}
+
 function getSqlite() {
-  if (process.env.DB_DRIVER === 'json') return null;
+  if (String(process.env.DB_DRIVER || 'sqlite').toLowerCase() === 'json') return null;
   if (sqlite) return sqlite;
   if (sqliteUnavailableReason) return null;
 
   ensureDataDir();
 
   try {
-    const { DatabaseSync } = require('node:sqlite');
-    sqlite = new DatabaseSync(sqlitePath);
-    sqlite.exec(`
-      PRAGMA journal_mode = WAL;
-      PRAGMA busy_timeout = 5000;
-      CREATE TABLE IF NOT EXISTS app_state (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS users (
-        discord_id TEXT PRIMARY KEY,
-        username TEXT,
-        xp INTEGER DEFAULT 0,
-        level INTEGER DEFAULT 1,
-        messages INTEGER DEFAULT 0,
-        coins INTEGER DEFAULT 0,
-        reputation INTEGER DEFAULT 0,
-        season_xp INTEGER DEFAULT 0,
-        clan_id TEXT,
-        last_xp_at TEXT,
-        created_at TEXT,
-        updated_at TEXT,
-        data_json TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS audit_log (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        action TEXT NOT NULL,
-        details TEXT,
-        created_at TEXT NOT NULL
-      );
-    `);
+    sqlite = createSqliteConnection();
+    if (!sqlite) {
+      console.warn('[DataStore] SQLite unavailable, fallback to JSON:', sqliteUnavailableReason);
+      return null;
+    }
+    initializeSqliteSchema(sqlite);
     return sqlite;
   } catch (error) {
     sqliteUnavailableReason = error.message;
     console.warn('[DataStore] SQLite unavailable, fallback to JSON:', sqliteUnavailableReason);
+    sqlite = null;
+    sqliteEngine = null;
     return null;
   }
 }
@@ -369,6 +406,7 @@ function getStorageInfo() {
     sqlitePath,
     jsonPath,
     sqliteAvailable: Boolean(database),
+    sqliteEngine,
     sqliteUnavailableReason
   };
 }
