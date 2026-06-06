@@ -114,7 +114,7 @@ function buildSectionPayload(section) {
       title: '💰 Экономика и магазин',
       description: 'Монеты, покупки, инвентарь, подарки и бусты.',
       fields: [
-        { name: 'Монеты', value: '`/daily` — ежедневная награда\n`/balance` — баланс\n`/gift coins` — подарить монеты', inline: false },
+        { name: 'Монеты', value: '`/daily` — ежедневная награда\n`/balance` — баланс и последние операции\n`/gift coins` — подарить монеты', inline: false },
         { name: 'Магазин', value: '`/shop` — категории\n`/shop item` — карточка товара\n`/buy` — покупка\n`/inventory` и `/use` — предметы', inline: false },
         { name: 'Как получить монеты', value: 'Daily, мини-игры, квесты, ивенты и сезонные награды.', inline: false }
       ]

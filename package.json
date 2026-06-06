@@ -1,7 +1,7 @@
 {
   "name": "servercore-discord-bot",
-  "version": "24.1.12",
-  "description": "ServerCore Discord bot v24.1 server management UX upgrade",
+  "version": "24.1.13",
+  "description": "ServerCore Discord bot v24.1 server management UX balance history upgrade",
   "main": "http-wrapper.js",
   "scripts": {
     "start": "node http-wrapper.js",

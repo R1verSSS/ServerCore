@@ -176,7 +176,7 @@ function dangerConfirmFields(label = 'Подтвердить') {
 function commandsPage() {
   const groups = [
     ['Основные', ['/ping','/help','/roles','/profile','/profilecard','/profilecustomize','/cosmetics','/rank','/top','/dbstatus']],
-    ['Экономика', ['/daily','/balance','/shop','/buy','/gift','/inventory']],
+    ['Экономика', ['/daily','/balance','/balance-history','/shop','/buy','/gift','/inventory']],
     ['Сообщество', ['/rep','/reputation','/achievements','/badges','/clan']],
     ['Поддержка и модерация', ['/ticket','/close','/warn','/warnremove','/warnings','/cases','/case','/note','/appeal','/clear','/mute','/unmute','/kick','/ban','/modpanel']],
     ['Игры и активность', ['/game','/gamepanel','/quest','/event','/tournament','/season','/lfg','/voice']],
@@ -353,7 +353,7 @@ function startWebPanel(client) {
     const pg = paginate(filtered, req, 30);
     const toolbar = tableToolbar('/economy-history', req, [['date','Дата']], [['all','Все']]);
     const bodyRows = pg.items.map(r => `<tr><td>${escapeHtml(r.createdAt || '')}</td><td><b>${escapeHtml(r.username || r.userId)}</b><div class="small muted">${escapeHtml(r.userId)}</div></td><td>${escapeHtml(r.type)}</td><td>${Number(r.amount || 0) >= 0 ? '+' : ''}${Number(r.amount || 0)}</td><td>${escapeHtml(r.meta?.itemName || JSON.stringify(r.meta || {}))}</td></tr>`).join('');
-    const body = `<div class="card"><h2>📜 История экономики</h2><p class="muted">Журнал daily, покупок и будущих операций экономики. В Discord доступно через <code>/balance history:true</code>.</p>${toolbar}<div class="table-wrap"><table><tr><th>Дата</th><th>Участник</th><th>Тип</th><th>Сумма</th><th>Детали</th></tr>${bodyRows || '<tr><td colspan="5">История пока пустая.</td></tr>'}</table></div>${pager('/economy-history', req, pg.page, pg.pages)}</div>`;
+    const body = `<div class="card"><h2>📜 История экономики</h2><p class="muted">Журнал daily, покупок и будущих операций экономики. В Discord доступно через <code>/balance-history</code>.</p>${toolbar}<div class="table-wrap"><table><tr><th>Дата</th><th>Участник</th><th>Тип</th><th>Сумма</th><th>Детали</th></tr>${bodyRows || '<tr><td colspan="5">История пока пустая.</td></tr>'}</table></div>${pager('/economy-history', req, pg.page, pg.pages)}</div>`;
     res.send(layout('История экономики', body, req.query.message));
   });
 
