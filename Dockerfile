@@ -8,24 +8,6 @@ ENV NPM_CONFIG_FUND=false
 ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        ffmpeg \
-        libsodium23 \
-        libsodium-dev \
-        libopus-dev \
-        python3 \
-        make \
-        g++ \
-        pkg-config \
-        ca-certificates \
-        dnsutils \
-        netcat-openbsd \
-        iputils-ping \
-    && rm -rf /var/lib/apt/lists/*
-
-ENV PYTHON=/usr/bin/python3
-
 COPY package*.json ./
 
 # Bothost can fail on npm install/npm ci with "Exit handler never called".
@@ -39,12 +21,7 @@ RUN corepack enable \
     && test -f node_modules/@discordjs/voice/package.json \
     && test -f node_modules/play-dl/package.json \
     && test -f node_modules/libsodium-wrappers/package.json \
-    && test -f node_modules/sodium-native/package.json \
-    && test -f node_modules/@discordjs/opus/package.json \
-    && test -f node_modules/opusscript/package.json \
-    && test -f node_modules/tweetnacl/package.json \
-    && test -f node_modules/better-sqlite3/package.json \
-    && ffmpeg -version >/dev/null
+    && test -f node_modules/better-sqlite3/package.json
 
 COPY . .
 
