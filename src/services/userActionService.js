@@ -14,6 +14,7 @@ const { createTicket } = require('./ticketService');
 const { buildMainMenuPayload, buildSectionPayload } = require('./userMenuService');
 const { buildWebPanelMenuPayload } = require('./webPanelMenuService');
 const { buildHelpPayload } = require('../commands/help');
+const { rememberUserAction, buildAfterActionPayload } = require('./uxFlowService');
 
 function backRow() {
   return new ActionRowBuilder().addComponents(
@@ -113,6 +114,8 @@ async function buildDailyActionPayload(interaction) {
   const member = await interaction.guild.members.fetch(interaction.user.id);
   const result = await claimDaily(member);
 
+  rememberUserAction(interaction.user.id, 'daily_click', { source: 'discord_menu' });
+
   if (!result.ok && result.reason === 'cooldown') {
     const embed = new EmbedBuilder()
       .setColor(0xFEE75C)
@@ -141,7 +144,8 @@ async function buildDailyActionPayload(interaction) {
     .setTitle('🎁 Ежедневная награда')
     .setDescription(description.join('\n'))
     .setFooter({ text: 'ServerCore • Economy' });
-  return { embeds: [embed], components: [backRow()] };
+  const next = buildAfterActionPayload(interaction.user, 'daily', '🎁 Daily получен.');
+  return { embeds: [embed, ...(next.embeds || [])], components: next.components || [backRow()] };
 }
 
 async function buildTicketActionPayload(interaction) {
@@ -150,7 +154,9 @@ async function buildTicketActionPayload(interaction) {
     const channelText = result.channel ? `${result.channel}` : 'старый канал не найден';
     return { content: `⚠️ У тебя уже есть открытый тикет: ${channelText}`, embeds: [], components: [backRow()] };
   }
-  return { content: `✅ Тикет создан: ${result.channel}`, embeds: [], components: [backRow()] };
+  rememberUserAction(interaction.user.id, 'ticket_created', { ticketId: result.ticket?.id, channelId: result.channel?.id });
+  const next = buildAfterActionPayload(interaction.user, 'ticket', `✅ Тикет создан: ${result.channel}`);
+  return next;
 }
 
 function buildAchievementsActionPayload(user) {
@@ -161,7 +167,7 @@ function buildAchievementsActionPayload(user) {
     .setDescription(`Открыто достижений: **${data.unlockedCount} / ${data.total}**`)
     .addFields(
       { name: 'Бейджи', value: data.badges.length ? data.badges.join(' ') : 'Нет бейджей', inline: false },
-      { name: 'Последние достижения', value: data.unlocked.slice(-8).map(a => `${a.emoji || '🏅'} ${a.name}`).join('\n') || 'Пока нет достижений.', inline: false }
+      { name: 'Последние достижения', value: data.unlocked.slice(-8).map(a => `${a.badge || '🏅'} ${a.title || a.id}`).join('\n') || 'Пока нет достижений.', inline: false }
     )
     .setFooter({ text: 'ServerCore • Achievements' });
   return { embeds: [embed], components: [backRow()] };

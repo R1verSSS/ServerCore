@@ -10,6 +10,8 @@ const {
   ChannelType,
 } = require('discord.js');
 const { addAudit } = require('./auditService');
+const { recordForumThread, rememberUserAction } = require('./uxFlowService');
+const { awardAchievement } = require('./achievementService');
 
 const THREAD_FORUMS = {
   member_topic: {
@@ -184,7 +186,10 @@ async function createForumThreadFromModal(interaction, type) {
   });
 
   addAudit('forum_thread_create', interaction.user, { type, forumId: forum.id, forumName: forum.name, threadId: thread.id, title });
-  return { ok: true, thread, message: `✅ Тема создана: <#${thread.id}>` };
+  recordForumThread({ userId: interaction.user.id, username: interaction.user.username, threadId: thread.id, forumId: forum.id, forumName: forum.name, type, title });
+  rememberUserAction(interaction.user.id, 'topic_created', { type, threadId: thread.id, title });
+  awardAchievement(interaction.user.id, interaction.user.username, 'first_forum_topic');
+  return { ok: true, thread, message: `✅ Тема создана: <#${thread.id}>\n\n🧭 Что дальше: открой \`/me\`, чтобы увидеть тему в разделе **Мои темы**.` };
 }
 
 async function ensureForumChannel(guild, category, cfg) {

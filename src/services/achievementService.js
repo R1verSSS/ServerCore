@@ -86,6 +86,24 @@ const ACHIEVEMENTS = [
     description: 'Выполнить первый ежедневный квест.',
     badge: '📜',
   },
+  {
+    id: 'onboarding_complete',
+    title: 'Освоился на сервере',
+    description: 'Завершить стартовый onboarding-чек-лист.',
+    badge: '🧭',
+  },
+  {
+    id: 'first_forum_topic',
+    title: 'Автор темы',
+    description: 'Создать первую forum-тему через панель.',
+    badge: '🧵',
+  },
+  {
+    id: 'first_role_select',
+    title: 'Нашел свои интересы',
+    description: 'Выбрать роль через role select-menu.',
+    badge: '✅',
+  },
 ];
 
 const ACHIEVEMENT_MAP = new Map(ACHIEVEMENTS.map(item => [item.id, item]));

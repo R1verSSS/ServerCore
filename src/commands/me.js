@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const { safeDefer, safeEdit } = require('../utils/safeInteraction');
 const { getOrCreateUser } = require('../services/dataStore');
+const { buildSmartCenterPayload } = require('../services/uxFlowService');
 
 function buildMePayload(discordUser, profile) {
   const embed = new EmbedBuilder()
@@ -55,7 +56,7 @@ module.exports = {
   buildMeHint,
   async execute(interaction) {
     await safeDefer(interaction, { flags: MessageFlags.Ephemeral });
-    const profile = getOrCreateUser(interaction.user.id, interaction.user.username);
-    await safeEdit(interaction, buildMePayload(interaction.user, profile));
+    getOrCreateUser(interaction.user.id, interaction.user.username);
+    await safeEdit(interaction, buildSmartCenterPayload(interaction.user));
   }
 };

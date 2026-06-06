@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const dns = require('node:dns');
 const { Client, Collection, GatewayIntentBits, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { handleRoleButton } = require('./services/rolePanel');
+const { handleRoleButton, handleRoleSelect } = require('./services/rolePanel');
 const { addMessageXp } = require('./services/xpService');
 const { closeTicket } = require('./services/ticketService');
 const { joinEvent, leaveEvent } = require('./services/eventService');
@@ -24,6 +24,7 @@ const { joinLfg, leaveLfg, closeLfg, buildLfgEmbed, buildLfgButtons } = require(
 const { handleVoiceStateUpdate, handleVoiceButton, buildVoiceInfoEmbed, buildRenameModal, buildLimitModal, handleRenameModal, handleLimitModal, handleInviteSelect, buildVoiceActionPayload } = require('./services/tempVoiceService');
 const { startAutoBackupScheduler } = require('./services/backupService');
 const { buildMainMenuPayload, buildSectionPayload, buildQuickPayload } = require('./services/userMenuService');
+const { buildUserActionPayload } = require('./services/userActionService');
 const { sendWelcome, buildOnboardingStepPayload } = require('./services/onboardingService');
 const { buildHelpPayload } = require('./commands/help');
 const { error: errorPayload } = require('./services/responseService');
@@ -40,6 +41,7 @@ const { handleMusicButton, handleMusicModal } = require('./services/musicService
 const { buildWebPanelHelpPayload } = require('./services/webPanelMenuService');
 const { buildThreadHelpPayload, buildThreadCreateModal, createForumThreadFromModal } = require('./services/threadForumService');
 const { buildBotQuickMenuPanel, buildBotQuickSectionPayload } = require('./services/botQuickMenuService');
+const { buildSmartCenterPayload, buildMyItemsPayload, rememberUserAction, buildAfterActionPayload } = require('./services/uxFlowService');
 
 // Для нестабильных сетей Discord/Cloudflare: сначала пробуем IPv4.
 // Это часто устраняет UND_ERR_CONNECT_TIMEOUT на Windows.
@@ -243,7 +245,8 @@ client.on('interactionCreate', async interaction => {
       await safeDefer(interaction, true);
       const type = interaction.customId.split(':')[2] || 'member_topic';
       const result = await createForumThreadFromModal(interaction, type).catch(error => ({ ok: false, error, message: `❌ Не удалось создать тему: ${error.message}` }));
-      await safeEdit(interaction, { content: result.message || '❌ Не удалось создать тему.', embeds: [], components: [] });
+      const payload = result.ok ? buildAfterActionPayload(interaction.user, 'topic', result.message) : { content: result.message || '❌ Не удалось создать тему.', embeds: [], components: [] };
+      await safeEdit(interaction, payload);
       return;
     }
 
@@ -322,6 +325,11 @@ client.on('interactionCreate', async interaction => {
       return;
     }
 
+    if (interaction.isStringSelectMenu() && interaction.customId === 'role:select') {
+      await handleRoleSelect(interaction);
+      return;
+    }
+
 
 
 
@@ -343,6 +351,18 @@ client.on('interactionCreate', async interaction => {
       return;
     }
 
+    if (interaction.isButton() && interaction.customId === 'ux:my-items') {
+      await safeDefer(interaction, true);
+      await safeEdit(interaction, buildMyItemsPayload(interaction.user));
+      return;
+    }
+
+    if (interaction.isButton() && interaction.customId === 'ux:center') {
+      await safeDefer(interaction, true);
+      await safeEdit(interaction, buildSmartCenterPayload(interaction.user));
+      return;
+    }
+
     if (interaction.isButton() && interaction.customId === 'menu:back') {
       await safeDefer(interaction, true);
       await safeEdit(interaction, buildMainMenuPayload());
@@ -360,7 +380,10 @@ client.on('interactionCreate', async interaction => {
         await safeEdit(interaction, { content: '📚 Документация доступна в веб-панели: `/docs`. Также смотри README-файлы проекта.', embeds: [], components: [] });
         return;
       }
-      await safeEdit(interaction, buildQuickPayload(kind));
+      rememberUserAction(interaction.user.id, `quick_${kind}`, { channelId: interaction.channelId });
+      const actionKinds = new Set(['profile','profilecard','daily','balance','economy','inventory','shop','games','ticket','achievements','battlepass','webpanel','help','voice','event','lfg','suggest','apply','modpanel']);
+      const payload = actionKinds.has(kind) ? await buildUserActionPayload(interaction, kind) : buildQuickPayload(kind);
+      await safeEdit(interaction, payload);
       return;
     }
 

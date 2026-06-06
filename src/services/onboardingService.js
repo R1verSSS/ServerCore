@@ -2,6 +2,8 @@ const { ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle 
 const { buildMainMenuPayload } = require('./userMenuService');
 const { getOnboardingProgress, markOnboarding, recordEconomy } = require('./managementUxService');
 const { updateUser } = require('./dataStore');
+const { awardAchievement, buildUnlockedText } = require('./achievementService');
+const { rememberUserAction } = require('./uxFlowService');
 
 function findChannel(guild, name) {
   return guild?.channels.cache.find(ch => ch.type === ChannelType.GuildText && ch.name === name) || null;

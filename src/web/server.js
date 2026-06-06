@@ -32,10 +32,11 @@ const { buildShopPanel } = require('../services/shopPanel');
 const { buildPublicCommandsPanel, buildModerationCommandsPanel, commandsHtml } = require('../services/commandReferenceService');
 const { buildModuleStatus, setModuleEnabled } = require('../services/moduleService');
 const { listChannelRules, setChannelRule } = require('../services/channelRulesService');
-const { updateTicketRecord, priorityLabel } = require('../services/ticketService');
+const { updateTicketRecord, priorityLabel, createTicket } = require('../services/ticketService');
 const { buildProductionReport } = require('../services/productionCheckService');
 const { getEconomyHistory, getTicketTemplates, getPanelRegistry, registerPanelPublish, getRoleUsage, getDailyDeal, getPurchaseHistory, recordWebLogin, getWebLoginLog, getAutomodRules, saveAutomodRules } = require('../services/managementUxService');
 const { loginUser, validateSession, listUserWebLog } = require('../services/webAccountService');
+const { buildWebUserNextHtml, claimWebDaily, logWebUserAction, getUserFlowData } = require('../services/uxFlowService');
 
 const started = { value: false };
 const loginAttempts = new Map();
@@ -77,7 +78,7 @@ function getWebAuth(req, config) {
   return null;
 }
 function isUserPanelRoute(pathname = '') {
-  return pathname === '/user-panel' || pathname.startsWith('/my-') || pathname === '/account' || pathname === '/logout';
+  return pathname === '/user-panel' || pathname.startsWith('/my-') || pathname.startsWith('/user-actions/') || pathname === '/account' || pathname === '/logout';
 }
 function requireWebAuth(config) {
   return (req, res, next) => {
@@ -153,6 +154,8 @@ function userLayout(title, body, auth, message = '', warning = '') {
     ['/my-balance', '💰 Баланс'],
     ['/my-inventory', '🎒 Инвентарь'],
     ['/my-tickets', '🎫 Тикеты'],
+    ['/my-topics', '🧵 Темы'],
+    ['/my-applications', '📨 Заявки'],
     ['/my-events', '📅 Активности'],
     ['/my-purchases', '🧾 Покупки'],
     ['/account', '⚙️ Аккаунт'],
@@ -338,7 +341,7 @@ function startWebPanel(client) {
     const tickets = Object.values(db.tickets || {}).filter(t => t.userId === req.webAuth.userId || t.authorId === req.webAuth.userId);
     const purchases = getPurchaseHistory(req.webAuth.userId, 5);
     const economy = getEconomyHistory(req.webAuth.userId, 5);
-    const body = `<div class="grid"><div class="card"><div class="muted">Баланс</div><div class="stat">${Number(user.coins || 0)}</div><p class="muted">монет</p></div><div class="card"><div class="muted">Уровень</div><div class="stat">${Number(user.level || 1)}</div><p class="muted">XP: ${Number(user.xp || 0)}</p></div><div class="card"><div class="muted">Репутация</div><div class="stat">${Number(user.reputation || 0)}</div></div><div class="card"><div class="muted">Мои тикеты</div><div class="stat">${tickets.length}</div></div></div><div class="grid section"><div class="card"><h2>💰 Последние операции</h2>${renderSimpleEconomyTable(economy)}</div><div class="card"><h2>🧾 Последние покупки</h2>${renderSimplePurchasesTable(purchases)}</div></div>`;
+    const body = `${buildWebUserNextHtml(req.webAuth.userId)}<div class="grid section"><div class="card"><div class="muted">Баланс</div><div class="stat">${Number(user.coins || 0)}</div><p class="muted">монет</p></div><div class="card"><div class="muted">Уровень</div><div class="stat">${Number(user.level || 1)}</div><p class="muted">XP: ${Number(user.xp || 0)}</p></div><div class="card"><div class="muted">Репутация</div><div class="stat">${Number(user.reputation || 0)}</div></div><div class="card"><div class="muted">Мои тикеты</div><div class="stat">${tickets.length}</div></div></div><div class="grid section"><div class="card"><h2>💰 Последние операции</h2>${renderSimpleEconomyTable(economy)}</div><div class="card"><h2>🧾 Последние покупки</h2>${renderSimplePurchasesTable(purchases)}</div></div>`;
     res.send(userLayout('Личный кабинет', body, req.webAuth, req.query.message));
   });
 
@@ -370,7 +373,46 @@ function startWebPanel(client) {
     const db = readDatabase();
     const tickets = Object.values(db.tickets || {}).filter(t => t.userId === req.webAuth.userId || t.authorId === req.webAuth.userId).sort((a,b)=>Number(b.id)-Number(a.id));
     const rows = tickets.map(t => `<tr><td>#${t.id}</td><td>${escapeHtml(t.status || 'open')}</td><td>${escapeHtml(t.priority || 'normal')}</td><td>${escapeHtml(t.reason || '—')}</td><td>${escapeHtml(t.createdAt || '')}</td></tr>`).join('');
-    res.send(userLayout('Мои тикеты', `<div class="card"><h2>🎫 Мои тикеты</h2><table><tr><th>ID</th><th>Статус</th><th>Приоритет</th><th>Причина</th><th>Дата</th></tr>${rows || '<tr><td colspan="5">Тикетов пока нет.</td></tr>'}</table></div>`, req.webAuth));
+    res.send(userLayout('Мои тикеты', `<div class="card"><h2>🎫 Мои тикеты</h2><table><tr><th>ID</th><th>Статус</th><th>Приоритет</th><th>Причина</th><th>Дата</th></tr>${rows || '<tr><td colspan="5">Тикетов пока нет.</td></tr>'}</table></div>`, req.webAuth, req.query.message));
+  });
+
+
+  app.get('/my-topics', (req, res) => {
+    const data = getUserFlowData(req.webAuth.userId);
+    const rows = data.topics.map(t => `<tr><td><b>${escapeHtml(t.title || 'Тема')}</b><div class="small muted">${escapeHtml(t.type || '')}</div></td><td>${escapeHtml(t.forumName || '—')}</td><td>${t.threadId ? `<span class="pill">${escapeHtml(t.threadId)}</span>` : '—'}</td><td>${escapeHtml(t.status || 'open')}</td><td>${escapeHtml(t.createdAt || '')}</td></tr>`).join('');
+    res.send(userLayout('Мои темы', `<div class="card"><h2>🧵 Мои темы</h2><p class="muted">Здесь отображаются forum-темы, созданные через панель тем.</p><table><tr><th>Тема</th><th>Forum</th><th>Thread ID</th><th>Статус</th><th>Дата</th></tr>${rows || '<tr><td colspan="5">Тем пока нет.</td></tr>'}</table></div>`, req.webAuth));
+  });
+
+  app.get('/my-applications', (req, res) => {
+    const data = getUserFlowData(req.webAuth.userId);
+    const rows = data.applications.map(a => `<tr><td>#${escapeHtml(a.id || '')}</td><td>${escapeHtml(a.type || 'заявка')}</td><td>${escapeHtml(a.status || 'new')}</td><td>${escapeHtml(a.createdAt || '')}</td></tr>`).join('');
+    res.send(userLayout('Мои заявки', `<div class="card"><h2>📨 Мои заявки</h2><table><tr><th>ID</th><th>Тип</th><th>Статус</th><th>Дата</th></tr>${rows || '<tr><td colspan="4">Заявок пока нет.</td></tr>'}</table></div>`, req.webAuth));
+  });
+
+  app.post('/user-actions/daily', (req, res) => {
+    const result = claimWebDaily(req.webAuth.userId, req.webAuth.label);
+    logWebUserAction(req.webAuth.userId, 'daily_button', { ok: result.ok, source: 'web-panel' });
+    if (!result.ok) return res.redirect(`/user-panel?message=${encodeURIComponent('Daily пока на cooldown.')}`);
+    res.redirect(`/user-panel?message=${encodeURIComponent(`Daily получен: +${result.coins} монет и +${result.xp} XP.`)}`);
+  });
+
+  app.post('/user-actions/ticket', async (req, res) => {
+    const guild = getGuild(client);
+    if (!guild) return res.redirect(`/my-tickets?message=${encodeURIComponent('Сервер Discord не найден. Попробуй создать тикет через /ticket.')}`);
+    const fakeInteraction = {
+      guild,
+      user: {
+        id: req.webAuth.userId,
+        username: req.webAuth.label || req.webAuth.userId,
+        tag: req.webAuth.label || req.webAuth.userId,
+        toString() { return `<@${req.webAuth.userId}>`; }
+      }
+    };
+    const result = await createTicket(fakeInteraction, '🌐 Создано из пользовательской веб-панели', { templateId: 'web', priority: 'normal' }).catch(error => ({ ok: false, reason: error.message }));
+    logWebUserAction(req.webAuth.userId, 'ticket_request_from_web', { ok: result.ok, reason: result.reason || '', channelId: result.channel?.id, source: 'web-panel' });
+    if (result.ok) return res.redirect(`/my-tickets?message=${encodeURIComponent(`Тикет создан: ${result.channel?.name || result.ticket?.id}.`)}`);
+    if (result.reason === 'already_open') return res.redirect(`/my-tickets?message=${encodeURIComponent('У тебя уже есть открытый тикет.')}`);
+    res.redirect(`/my-tickets?message=${encodeURIComponent('Не удалось создать тикет из веб-панели. Попробуй /ticket в Discord.')}`);
   });
 
   app.get('/my-events', (req, res) => {
