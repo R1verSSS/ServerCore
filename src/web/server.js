@@ -18,6 +18,7 @@ const { createBackup, listBackups, restoreBackup, deleteBackup, exportData, clea
 const { buildHealthReport, formatHealthLines } = require('../services/healthCheckService');
 const { buildMainMenuPayload } = require('../services/userMenuService');
 const { buildWebPanelMenuPayload, getWebPanelUrl } = require('../services/webPanelMenuService');
+const { buildThreadPanel, getForumOptions } = require('../services/threadForumService');
 const { SETTINGS_DESCRIPTIONS } = require('../services/settingsService');
 const { listAudit, addAudit } = require('../services/auditService');
 const { getMaintenance, setMaintenance } = require('../services/maintenanceService');
@@ -95,6 +96,12 @@ function getTextChannels(guild) {
     .sort((a, b) => a.position - b.position)
     .map(channel => ({ id: channel.id, name: channel.name })) || [];
 }
+function getForumChannels(guild) {
+  return guild?.channels.cache
+    .filter(channel => channel.type === ChannelType.GuildForum)
+    .sort((a, b) => a.position - b.position)
+    .map(channel => ({ id: channel.id, name: channel.name, parent: channel.parent?.name || 'Без категории', tags: channel.availableTags || [] })) || [];
+}
 function getChannelOptions(guild, selected = '') {
   return getTextChannels(guild).map(channel => `<option value="${channel.id}" ${channel.id === selected ? 'selected' : ''}>${escapeHtml(channel.name)}</option>`).join('');
 }
@@ -123,7 +130,7 @@ function layout(title, body, message = '', warning = '') {
     { title: 'Пользователи', icon: '👥', links: [['/users', 'Участники'], ['/profiles', 'Профили'], ['/economy', 'Экономика'], ['/economy-history', 'История экономики'], ['/purchase-history', 'Покупки'], ['/shop-admin', 'Магазин'], ['/shop-deals', 'Скидки']] },
     { title: 'Активности', icon: '🎮', links: [['/onboarding', 'Онбординг'], ['/events', 'Ивенты'], ['/voice', 'Voice'], ['/suggestions-panel', 'Предложения'], ['/notifications', 'Уведомления'], ['/clans', 'Кланы'], ['/applications', 'Заявки'], ['/tournaments', 'Турниры'], ['/season', 'Сезон']] },
     { title: 'Модерация', icon: '🛡️', links: [['/tickets', 'Тикеты'], ['/ticket-templates', 'Шаблоны тикетов'], ['/moderation', 'Модерация'], ['/channel-rules', 'Правила каналов'], ['/access', 'Доступ и роли'], ['/automod', 'AutoMod'], ['/automod-rules', 'AutoMod Rules'], ['/logs', 'Логи'], ['/audit', 'Audit']] },
-    { title: 'Система', icon: '⚙️', links: [['/settings', 'Настройки'], ['/web-logins', 'Входы'], ['/vps', 'VPS'], ['/panel-center', 'Центр панелей'], ['/roles', 'Роли'], ['/maintenance', 'Обслуживание'], ['/production', 'Production-check'], ['/hosting', 'Хостинг'], ['/backups', 'Бэкапы'], ['/integrations', 'Интеграции'], ['/commands', 'Команды']] },
+    { title: 'Система', icon: '⚙️', links: [['/settings', 'Настройки'], ['/web-logins', 'Входы'], ['/forum-channels', 'Forum-каналы'], ['/vps', 'VPS'], ['/panel-center', 'Центр панелей'], ['/roles', 'Роли'], ['/maintenance', 'Обслуживание'], ['/production', 'Production-check'], ['/hosting', 'Хостинг'], ['/backups', 'Бэкапы'], ['/integrations', 'Интеграции'], ['/commands', 'Команды']] },
   ];
   const nav = navGroups.map(group => `<details class="nav-group" open><summary>${group.icon} ${group.title}</summary>${group.links.map(([href, label]) => `<a href="${href}">${label}</a>`).join('')}</details>`).join('');
   return `<!doctype html>
@@ -472,7 +479,7 @@ function startWebPanel(client) {
 
   app.get('/panels', (req, res) => {
     const guild = getGuild(client);
-    const body = `<div class="card"><h2>📌 Мастер публикации Discord-панелей</h2><p class="muted">Выбери тип панели, канал и нажми “Опубликовать”. Это удобно после переезда на новый сервер или если сообщение панели удалили.</p></div><div class="grid-2 section"><div class="card"><h2>Опубликовать панель</h2><form method="post" action="/actions/publish-panel"><label>Тип панели<select name="type"><option value="main">🧭 Главное меню</option><option value="webpanel">🌐 Веб-панель</option><option value="roles">✅ Панель ролей</option><option value="games">🎲 Мини-игры</option><option value="moderation">🧰 Модерация</option><option value="applications">📨 Заявки</option><option value="tickets">🎫 Поддержка / тикеты</option><option value="voice">🔊 Voice-комнаты</option><option value="shop">🛒 Магазин</option><option value="commands">📚 Все команды</option><option value="modcommands">📘 Команды модерации</option></select></label><label>Канал<select name="channelId">${getChannelOptions(guild)}</select></label><button>Опубликовать</button></form></div><div class="card"><h2>Подсказка</h2><p class="muted">Рекомендуемые каналы: главное меню → 🧭・навигация, роли → ✅・получить-роли, мини-игры → 🎲・мини-игры, модерация → 🧰・панель-модерации, заявки → 📨・заявки.</p><p><a class="pill" href="/quick-actions">Быстрые действия</a><a class="pill" href="/settings">Настройки каналов</a></p></div></div>`;
+    const body = `<div class="card"><h2>📌 Мастер публикации Discord-панелей</h2><p class="muted">Выбери тип панели, канал и нажми “Опубликовать”. Это удобно после переезда на новый сервер или если сообщение панели удалили.</p></div><div class="grid-2 section"><div class="card"><h2>Опубликовать панель</h2><form method="post" action="/actions/publish-panel"><label>Тип панели<select name="type"><option value="main">🧭 Главное меню</option><option value="webpanel">🌐 Веб-панель</option><option value="roles">✅ Панель ролей</option><option value="games">🎲 Мини-игры</option><option value="moderation">🧰 Модерация</option><option value="applications">📨 Заявки</option><option value="tickets">🎫 Поддержка / тикеты</option><option value="voice">🔊 Voice-комнаты</option><option value="shop">🛒 Магазин</option><option value="commands">📚 Все команды</option><option value="modcommands">📘 Команды модерации</option><option value="threads">🧵 Темы и ветки</option></select></label><label>Канал<select name="channelId">${getChannelOptions(guild)}</select></label><button>Опубликовать</button></form></div><div class="card"><h2>Подсказка</h2><p class="muted">Рекомендуемые каналы: главное меню → 🧭・навигация, роли → ✅・получить-роли, мини-игры → 🎲・мини-игры, модерация → 🧰・панель-модерации, заявки → 📨・заявки.</p><p><a class="pill" href="/quick-actions">Быстрые действия</a><a class="pill" href="/settings">Настройки каналов</a></p></div></div>`;
     res.send(layout('Панели Discord', body, req.query.message, req.query.warning));
   });
 
@@ -515,6 +522,16 @@ function startWebPanel(client) {
     const rows = panels.map(pn => `<tr><td><b>${escapeHtml(pn.label)}</b><div class="small muted">${escapeHtml(pn.id)}</div></td><td>${escapeHtml(pn.channelName || pn.channel)}</td><td>${statusBadge(pn.status)}</td><td>${pn.publishedAt ? escapeHtml(pn.publishedAt) : '—'}</td><td><form method="post" action="/actions/publish-panel"><input type="hidden" name="type" value="${escapeHtml(pn.id)}"/><select name="channelId">${getChannelOptions(guild, pn.channelId)}</select><button>Опубликовать/обновить</button></form></td></tr>`).join('');
     const body = `<div class="card"><h2>📌 Центр управления Discord-панелями 2.0</h2><p class="muted">Показывает статус ключевых панелей: опубликована, найден только канал или отсутствует. Здесь можно быстро обновить любую панель.</p></div><div class="card section wide"><table><tr><th>Панель</th><th>Канал</th><th>Статус</th><th>Последнее обновление</th><th>Действие</th></tr>${rows}</table></div>`;
     res.send(layout('Центр панелей', body, req.query.message, req.query.warning));
+  });
+
+  app.get('/forum-channels', (req, res) => {
+    const guild = getGuild(client);
+    const forums = getForumChannels(guild);
+    const planned = getForumOptions(guild);
+    const plannedRows = planned.map(item => `<tr><td>${item.emoji} <b>${escapeHtml(item.label)}</b></td><td>${escapeHtml(item.channel?.name || 'не найден')}</td><td>${item.channel?.type === ChannelType.GuildForum ? statusBadge('ok') : statusBadge('missing')}</td></tr>`).join('');
+    const rows = forums.map(forum => `<tr><td><b>${escapeHtml(forum.name)}</b><div class="small muted">${escapeHtml(forum.parent)}</div></td><td>${forum.tags.map(tag => `<span class="pill">${escapeHtml(tag.name)}</span>`).join(' ') || '—'}</td><td><span class="pill">${forum.id}</span></td></tr>`).join('');
+    const body = `<div class="grid-2"><div class="card"><h2>🧵 Forum-каналы</h2><p class="muted">Эта страница показывает каналы, которые лучше вести как темы/ветки вместо обычного потока сообщений.</p><p class="muted">Важно: Discord не меняет тип существующего канала. При setup старый текстовый канал переименуется в <b>-архив</b>, а рядом создается новый forum-канал.</p><form method="post" action="/actions/publish-panel"><input type="hidden" name="type" value="threads"/><label>Куда отправить панель создания тем<select name="channelId">${getChannelOptions(guild)}</select></label><button>Опубликовать панель тем</button></form></div><div class="card"><h2>Рекомендуемые forum-разделы</h2><table><tr><th>Тип</th><th>Канал</th><th>Статус</th></tr>${plannedRows}</table></div></div><div class="card section wide"><h2>Найденные forum-каналы</h2><table><tr><th>Канал</th><th>Теги</th><th>ID</th></tr>${rows || '<tr><td colspan="3">Forum-каналы пока не найдены. Выполни <code>npm run setup</code>.</td></tr>'}</table></div>`;
+    res.send(layout('Forum-каналы', body, req.query.message));
   });
 
   app.get('/roles', (req, res) => {
@@ -809,6 +826,7 @@ npm start</div></div></div>`;
     else if (type === 'shop') ok = await safeSend(channel, buildShopPanel());
     else if (type === 'commands') ok = await safeSend(channel, buildPublicCommandsPanel());
     else if (type === 'modcommands') ok = await safeSend(channel, buildModerationCommandsPanel());
+    else if (type === 'threads') ok = await safeSend(channel, buildThreadPanel());
     if (ok) registerPanelPublish(type, channel.id, channel.name, 'web-panel');
     addAudit('panel_publish', { name: 'Web Panel' }, { source: 'web', type, channelId: req.body.channelId, ok });
     res.redirect(redirect('/panels', ok ? 'Панель опубликована.' : 'Не удалось опубликовать панель. Проверь права бота и канал.'));

@@ -65,6 +65,8 @@ const COMMAND_RULES = {
   suggestion: { level: 'MEMBER', subcommands: { status: 'MODERATOR' } },
   poll: { level: 'MEMBER', subcommands: { create: 'MODERATOR', close: 'MODERATOR' } },
   menu: { level: 'MEMBER', subcommands: { post: 'ADMIN' } },
+  webpanel: { level: 'MEMBER', subcommands: { post: 'ADMIN' } },
+  threadpanel: { level: 'MEMBER', subcommands: { post: 'ADMIN' } },
   voice: { level: 'MEMBER', subcommands: { setup: 'ADMIN', list: 'MODERATOR' } },
 };
 
@@ -79,15 +81,11 @@ const CONTEXT_RULES = {
 
 const BUTTON_RULES = [
   { prefix: 'modpanel:', level: 'MODERATOR' },
-  { prefix: 'menu:quick:modpanel', level: 'MODERATOR' },
-  { prefix: 'menu:quick:health', level: 'ADMIN' },
   { prefix: 'application:accept:', level: 'MODERATOR' },
   { prefix: 'application:deny:', level: 'MODERATOR' },
   { prefix: 'suggestion:status:', level: 'MODERATOR' },
   { prefix: 'poll:close:', level: 'MODERATOR' },
   { prefix: 'clear:', level: 'MODERATOR' },
-  { prefix: 'voice:delete_confirm', level: 'MEMBER' },
-  { prefix: 'shop:admin:', level: 'ADMIN' },
 ];
 
 function normalizeLevel(level = 'MEMBER') {

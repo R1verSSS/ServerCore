@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { safeDefer, safeEdit } = require('../utils/safeInteraction');
-const { getUserStats, getRequiredXp, syncMemberLevelRoles } = require('../services/xpService');
+const { getUserStats, getRequiredXp } = require('../services/xpService');
 const { getUserAchievements } = require('../services/achievementService');
 const { getProfile, getColor, getBackground } = require('../services/profileCustomizationService');
 const { getSeasonProgress } = require('../services/battlePassService');
@@ -36,7 +36,6 @@ module.exports = {
 
     const member = await interaction.guild.members.fetch(target.id).catch(() => null);
     const stats = getUserStats(target.id, target.username);
-    if (member) await syncMemberLevelRoles(member, stats.level || 1).catch(() => null);
     const requiredXp = getRequiredXp(stats.level || 1);
     const achievementData = getUserAchievements(target.id, target.username);
     const customProfile = getProfile(target.id, target.username);

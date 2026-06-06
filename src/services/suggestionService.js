@@ -1,4 +1,4 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ChannelType } = require('discord.js');
 const { readDatabase, writeDatabase } = require('./dataStore');
 const { logToModeration } = require('./logService');
 
@@ -20,8 +20,26 @@ function isModerator(member) {
   );
 }
 
-function findTextChannel(guild, name) {
-  return guild?.channels?.cache?.find(channel => channel.name === name && channel.isTextBased());
+function findSuggestionTarget(guild, name) {
+  return guild?.channels?.cache?.find(channel => channel.name === name && (channel.isTextBased?.() || channel.type === ChannelType.GuildForum));
+}
+
+async function publishToTextOrForum(channel, title, payload, tagName = null) {
+  if (!channel) return null;
+  if (channel.type === ChannelType.GuildForum) {
+    const tag = tagName ? channel.availableTags?.find(item => item.name === tagName) : null;
+    const thread = await channel.threads.create({
+      name: String(title || 'Тема').slice(0, 90),
+      message: payload,
+      appliedTags: tag ? [tag.id] : [],
+    });
+    return { channelId: thread.id, messageId: thread.lastMessageId, thread };
+  }
+  if (channel.send) {
+    const message = await channel.send(payload);
+    return { channelId: channel.id, messageId: message.id, message };
+  }
+  return null;
 }
 
 function statusLabel(status) {
@@ -117,11 +135,11 @@ async function createSuggestion(interaction, idea) {
   db.suggestions[id] = suggestion;
   writeDatabase(db);
 
-  const channel = findTextChannel(interaction.guild, SUGGESTIONS_CHANNEL);
+  const channel = findSuggestionTarget(interaction.guild, SUGGESTIONS_CHANNEL);
   if (channel) {
-    const message = await channel.send({ embeds: [buildSuggestionEmbed(suggestion, interaction.guild)], components: buildSuggestionButtons(suggestion) });
-    suggestion.messageId = message.id;
-    suggestion.channelId = channel.id;
+    const published = await publishToTextOrForum(channel, `Предложение #${id}`, { embeds: [buildSuggestionEmbed(suggestion, interaction.guild)], components: buildSuggestionButtons(suggestion) }, 'Идея');
+    suggestion.messageId = published?.messageId || null;
+    suggestion.channelId = published?.channelId || null;
     const latest = ensureStore(readDatabase());
     latest.suggestions[id] = suggestion;
     writeDatabase(latest);
@@ -263,11 +281,11 @@ async function createPoll(interaction, question, optionsRaw) {
   db.polls[id] = poll;
   writeDatabase(db);
 
-  const channel = findTextChannel(interaction.guild, SUGGESTIONS_CHANNEL) || interaction.channel;
+  const channel = findSuggestionTarget(interaction.guild, SUGGESTIONS_CHANNEL) || interaction.channel;
   if (channel) {
-    const message = await channel.send({ embeds: [buildPollEmbed(poll)], components: buildPollButtons(poll) });
-    poll.channelId = channel.id;
-    poll.messageId = message.id;
+    const published = await publishToTextOrForum(channel, `Опрос #${id}`, { embeds: [buildPollEmbed(poll)], components: buildPollButtons(poll) }, 'Идея');
+    poll.channelId = published?.channelId || null;
+    poll.messageId = published?.messageId || null;
     const latest = ensureStore(readDatabase());
     latest.polls[id] = poll;
     writeDatabase(latest);
@@ -320,14 +338,15 @@ function getPoll(id) {
 
 async function createSuggestionsChannel(guild) {
   if (!guild) return null;
-  let channel = findTextChannel(guild, SUGGESTIONS_CHANNEL);
+  let channel = findSuggestionTarget(guild, SUGGESTIONS_CHANNEL);
   if (channel) return channel;
   const category = guild.channels.cache.find(ch => ch.name === '💬 ОБЩЕНИЕ' && ch.type === 4) || null;
   channel = await guild.channels.create({
     name: SUGGESTIONS_CHANNEL,
-    type: 0,
+    type: ChannelType.GuildForum,
     parent: category?.id,
-    topic: 'Предложения пользователей и голосования.',
+    topic: 'Предложения пользователей и голосования отдельными темами.',
+    availableTags: ['Идея', 'Улучшение', 'Баг', 'Принято', 'Отклонено'].map(name => ({ name, moderated: false })),
     reason: 'Create suggestions channel'
   });
   return channel;

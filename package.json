@@ -1,7 +1,7 @@
 {
   "name": "servercore-discord-bot",
-  "version": "24.1.18",
-  "description": "ServerCore Discord bot v24.1 XP level roles and action menu upgrade",
+  "version": "24.1.20",
+  "description": "ServerCore Discord bot v24.1 forum channels and thread UX upgrade",
   "main": "http-wrapper.js",
   "scripts": {
     "start": "node http-wrapper.js",

@@ -10,6 +10,7 @@ const { buildShopPanel } = require('./services/shopPanel');
 const { buildMusicPanel, isMusicEnabled } = require('./services/musicService');
 const { buildPublicCommandsPanel, buildModerationCommandsPanel } = require('./services/commandReferenceService');
 const { buildWebPanelMenuPayload } = require('./services/webPanelMenuService');
+const { buildThreadPanel } = require('./services/threadForumService');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
@@ -68,18 +69,34 @@ async function createCategoryIfMissing(guild, categoryConfig, moderatorRole, adm
 }
 
 async function createChannelIfMissing(guild, channelConfig, parent) {
-  const existing = guild.channels.cache.find(
+  let existing = guild.channels.cache.find(
     channel => channel.name === channelConfig.name && channel.parentId === parent.id
   );
+
+  // Discord не умеет менять тип канала Text → Forum.
+  // Поэтому при переходе на forum-структуру старый текстовый канал аккуратно переименовывается в архив,
+  // а рядом создается новый forum-канал с исходным именем.
+  if (existing && existing.type !== channelConfig.type) {
+    const archiveName = `${channelConfig.name}-архив`.slice(0, 95);
+    await existing.setName(archiveName, 'ServerCore: replacing channel with another type').catch(() => null);
+    existing = null;
+  }
+
   if (existing) return existing;
 
-  return guild.channels.create({
+  const options = {
     name: channelConfig.name,
     type: channelConfig.type,
     parent: parent.id,
     topic: channelConfig.topic,
     reason: 'Server template setup'
-  });
+  };
+
+  if (channelConfig.type === ChannelType.GuildForum) {
+    options.availableTags = (channelConfig.tags || []).slice(0, 20).map(name => ({ name, moderated: false }));
+  }
+
+  return guild.channels.create(options);
 }
 
 async function sendOnce(channel, payload, markerTitle, options = {}) {
@@ -99,6 +116,7 @@ async function sendStarterMessages(guild) {
   const navigation = guild.channels.cache.find(ch => ch.name === '🧭・навигация');
   const rolesChannel = guild.channels.cache.find(ch => ch.name === '✅・получить-роли');
   const commandsChannel = guild.channels.cache.find(ch => ch.name === '📚・команды');
+  const threadHub = guild.channels.cache.find(ch => ch.name === '🧭・навигация') || guild.channels.cache.find(ch => ch.name === '🤖・команды-бота');
   const shopChannel = guild.channels.cache.find(ch => ch.name === '🛍・витрина');
   const botChannel = guild.channels.cache.find(ch => ch.name === '🤖・команды-бота');
   const miniGames = guild.channels.cache.find(ch => ch.name === '🎲・мини-игры');
@@ -128,6 +146,7 @@ async function sendStarterMessages(guild) {
   await sendOnce(navigation, buildWebPanelMenuPayload(), '🌐 Веб-панель ServerCore', { pin: true });
   await sendOnce(rolesChannel, buildRolePanel(), '✅ Выбор ролей');
   await sendOnce(commandsChannel, buildPublicCommandsPanel(), '📚 Команды сервера');
+  await sendOnce(threadHub, buildThreadPanel(), '🧵 Темы и ветки сервера', { pin: true });
   await sendOnce(shopChannel, buildShopPanel(), '🛒 Магазин сервера');
   await sendOnce(botChannel, { embeds: [botEmbed] }, '🤖 Команды бота');
   await sendOnce(botChannel, buildWebPanelMenuPayload(), '🌐 Веб-панель ServerCore');

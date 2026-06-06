@@ -28,7 +28,7 @@ const SECTIONS = {
   },
   support: {
     label: 'Поддержка', emoji: '🎫', title: '🎫 Поддержка и заявки',
-    lines: ['`/ticket` — создать тикет', '`/close` — закрыть тикет', '`/apply form` — заявка через форму', '`/suggest` — предложить идею', '`/appeal create` — апелляция по наказанию']
+    lines: ['`/threadpanel open` — создать тему/ветку через панель', '`/ticket` — создать тикет', '`/close` — закрыть тикет', '`/apply form` — заявка через форму', '`/suggest` — предложить идею', '`/appeal create` — апелляция по наказанию']
   },
   moderation: {
     label: 'Модерация', emoji: '🛡️', title: '🛡️ Модерация',
@@ -81,7 +81,8 @@ function buildPublicCommandsPanel() {
   );
   const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('commands:open:support').setLabel('Поддержка').setEmoji('🎫').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('commands:open:voice').setLabel('Voice').setEmoji('🔊').setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId('commands:open:voice').setLabel('Voice').setEmoji('🔊').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('commands:open:support').setLabel('Темы').setEmoji('🧵').setStyle(ButtonStyle.Primary)
   );
   return { embeds: [embed], components: [row, row2] };
 }

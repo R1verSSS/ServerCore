@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { safeDefer, safeEdit } = require('../utils/safeInteraction');
-const { getUserStats, getRequiredXp, syncMemberLevelRoles } = require('../services/xpService');
+const { getUserStats, getRequiredXp } = require('../services/xpService');
 
 function createProgressBar(current, total, size = 12) {
   const safeTotal = Math.max(total, 1);
@@ -37,9 +37,7 @@ module.exports = {
       return;
     }
 
-    const member = await interaction.guild.members.fetch(target.id).catch(() => null);
     const stats = getUserStats(target.id, target.username);
-    if (member) await syncMemberLevelRoles(member, stats.level || 1).catch(() => null);
     const requiredXp = getRequiredXp(stats.level || 1);
     const remainingXp = Math.max(requiredXp - (stats.xp || 0), 0);
     const progressBar = createProgressBar(stats.xp || 0, requiredXp);

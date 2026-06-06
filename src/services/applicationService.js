@@ -160,13 +160,14 @@ function buildApplicationEmbed(app) {
 
 async function publishApplication(guild, app) {
   const settings = getSettings();
-  let channel = findTextChannelByName(guild, settings.applicationsChannelName || '📨・заявки');
+  let channel = guild?.channels?.cache?.find(ch => ch.name === (settings.applicationsChannelName || '📨・заявки')) || findTextChannelByName(guild, settings.applicationsChannelName || '📨・заявки');
   if (!channel) {
     const category = guild.channels.cache.find(item => item.type === ChannelType.GuildCategory && item.name.includes('МОДЕРАЦ'));
     channel = await guild.channels.create({
       name: settings.applicationsChannelName || '📨・заявки',
-      type: ChannelType.GuildText,
+      type: ChannelType.GuildForum,
       parent: category?.id || null,
+      availableTags: ['Модератор', 'Партнерство', 'Кастомная роль', 'Турнир', 'Другое'].map(name => ({ name, moderated: false })),
     });
   }
 
@@ -174,7 +175,17 @@ async function publishApplication(guild, app) {
     new ButtonBuilder().setCustomId(`application:accept:${app.id}`).setLabel('Принять').setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId(`application:deny:${app.id}`).setLabel('Отклонить').setStyle(ButtonStyle.Danger),
   );
-  await channel.send({ embeds: [buildApplicationEmbed(app)], components: [row] });
+  if (channel.type === ChannelType.GuildForum) {
+    const cfg = getApplicationType(app.type);
+    const tag = channel.availableTags?.find(item => item.name === (cfg.label?.replace('Заявка на ', '').replace('Заявка в ', '') || 'Другое')) || null;
+    await channel.threads.create({
+      name: `Заявка #${app.id} — ${app.typeLabel || app.type}`.slice(0, 90),
+      message: { embeds: [buildApplicationEmbed(app)], components: [row] },
+      appliedTags: tag ? [tag.id] : [],
+    });
+  } else {
+    await channel.send({ embeds: [buildApplicationEmbed(app)], components: [row] });
+  }
   return true;
 }
 

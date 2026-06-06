@@ -147,3 +147,8 @@ npm run setup
 ```env
 WEB_PANEL_URL=https://bot-1780694887-7211-r1vers.bothost.tech/login
 ```
+
+
+## v24.1 Forum Channels & Thread UX Upgrade
+
+Добавлены forum-каналы, команда `/threadpanel`, веб-страница `/forum-channels` и панель создания тем/веток.

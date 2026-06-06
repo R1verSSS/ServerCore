@@ -19,6 +19,7 @@ const PANEL_DEFINITIONS = [
   { id: 'moderation', label: '🧰 Модерация', channel: '🧰・панель-модерации' },
   { id: 'commands', label: '📚 Все команды', channel: '📚・команды' },
   { id: 'modcommands', label: '📘 Команды модерации', channel: '📘・команды-модерации' },
+  { id: 'threads', label: '🧵 Темы и ветки', channel: '🧭・навигация' },
   { id: 'voice', label: '🔊 Voice-комнаты', channel: '➕・создать-комнату' },
   { id: 'music', label: '🎵 Музыка', channel: '🎵・музыка' }
 ];

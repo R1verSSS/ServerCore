@@ -31,7 +31,6 @@ const { getMaintenance, isMaintenanceCommandAllowed } = require('./services/main
 const { runStartupSelfCheck } = require('./services/selfCheckService');
 const { addAudit } = require('./services/auditService');
 const { buildMeHint } = require('./commands/me');
-const { buildUserActionPayload } = require('./services/userActionService');
 const { buildHostingReadiness } = require('./services/hostingCheckService');
 const { checkInteractionAccess, checkComponentAccess, denyInteraction } = require('./services/accessControlService');
 const { buildCommandReferencePayload } = require('./services/commandReferenceService');
@@ -39,6 +38,7 @@ const { handleShopButton, handleShopSelect } = require('./services/shopPanel');
 const { handleProtectedChannelMessage } = require('./services/protectedChannelService');
 const { handleMusicButton, handleMusicModal } = require('./services/musicService');
 const { buildWebPanelHelpPayload } = require('./services/webPanelMenuService');
+const { buildThreadHelpPayload, buildThreadCreateModal, createForumThreadFromModal } = require('./services/threadForumService');
 
 // Для нестабильных сетей Discord/Cloudflare: сначала пробуем IPv4.
 // Это часто устраняет UND_ERR_CONNECT_TIMEOUT на Windows.
@@ -220,6 +220,26 @@ client.on('interactionCreate', async interaction => {
       return;
     }
 
+
+    if (interaction.isStringSelectMenu() && interaction.customId === 'threadpanel:create_select') {
+      const type = interaction.values?.[0] || 'member_topic';
+      await interaction.showModal(buildThreadCreateModal(type));
+      return;
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('threadpanel:modal:')) {
+      await safeDefer(interaction, true);
+      const type = interaction.customId.split(':')[2] || 'member_topic';
+      const result = await createForumThreadFromModal(interaction, type).catch(error => ({ ok: false, error, message: `❌ Не удалось создать тему: ${error.message}` }));
+      await safeEdit(interaction, { content: result.message || '❌ Не удалось создать тему.', embeds: [], components: [] });
+      return;
+    }
+
+    if (interaction.isButton() && interaction.customId === 'threadpanel:help') {
+      await safeReply(interaction, buildThreadHelpPayload());
+      return;
+    }
+
     if (interaction.isStringSelectMenu() && interaction.customId === 'menu:section') {
       const section = interaction.values?.[0] || 'profile';
       await safeReply(interaction, buildSectionPayload(section));
@@ -307,8 +327,7 @@ client.on('interactionCreate', async interaction => {
     if (interaction.isButton() && interaction.customId.startsWith('me:')) {
       await safeDefer(interaction, true);
       const [, kind] = interaction.customId.split(':');
-      const payload = await buildUserActionPayload(interaction, kind || 'profile');
-      await safeEdit(interaction, payload);
+      await safeEdit(interaction, buildMeHint(kind));
       return;
     }
 
@@ -329,8 +348,7 @@ client.on('interactionCreate', async interaction => {
         await safeEdit(interaction, { content: '📚 Документация доступна в веб-панели: `/docs`. Также смотри README-файлы проекта.', embeds: [], components: [] });
         return;
       }
-      const payload = await buildUserActionPayload(interaction, kind || 'profile');
-      await safeEdit(interaction, payload);
+      await safeEdit(interaction, buildQuickPayload(kind));
       return;
     }
 

@@ -41,11 +41,13 @@ const categories = [
     name: '💬 ОБЩЕНИЕ',
     channels: [
       { name: '💬・общий-чат', type: ChannelType.GuildText, topic: 'Основной чат сервера.' },
+      { name: '🧵・темы-участников', type: ChannelType.GuildForum, topic: 'Личные темы, дневники, обсуждения участников.', tags: ['Личная тема', 'Проект', 'Обсуждение', 'Другое'], defaultReactionEmoji: { name: '🧵' } },
+      { name: '❓・вопросы-и-помощь', type: ChannelType.GuildForum, topic: 'Вопросы и помощь отдельными темами.', tags: ['Вопрос', 'Ошибка', 'Discord', 'Бот', 'Другое'], defaultReactionEmoji: { name: '❓' } },
       { name: '😂・мемы', type: ChannelType.GuildText, topic: 'Мемы и смешной контент.' },
-      { name: '📷・скрины-и-фото', type: ChannelType.GuildText, topic: 'Скриншоты, фото и изображения.' },
+      { name: '📷・скрины-и-фото', type: ChannelType.GuildForum, topic: 'Скриншоты, фото и изображения отдельными темами.', tags: ['Скриншот', 'Фото', 'Мем', 'Другое'], defaultReactionEmoji: { name: '📷' } },
       { name: '🎵・музыка', type: ChannelType.GuildText, topic: 'Музыкальные обсуждения.' },
       { name: '🤖・команды-бота', type: ChannelType.GuildText, topic: 'Канал для команд бота.' },
-      { name: '💡・предложения', type: ChannelType.GuildText, topic: 'Предложения пользователей и голосования.' }
+      { name: '💡・предложения', type: ChannelType.GuildForum, topic: 'Предложения пользователей отдельными темами.', tags: ['Идея', 'Улучшение', 'Баг', 'Принято', 'Отклонено'], defaultReactionEmoji: { name: '💡' } }
     ]
   },
   {
@@ -60,7 +62,7 @@ const categories = [
   {
     name: '🎮 ИГРЫ И АКТИВНОСТИ',
     channels: [
-      { name: '🎮・поиск-команды', type: ChannelType.GuildText, topic: 'Поиск людей для совместных игр.' },
+      { name: '🎮・поиск-команды', type: ChannelType.GuildForum, topic: 'Поиск команды отдельными темами.', tags: ['CS2', 'Minecraft', 'Valorant', 'GTA', 'Другое'], defaultReactionEmoji: { name: '🎮' } },
       { name: '🏆・турниры', type: ChannelType.GuildText, topic: 'Турниры и соревнования.' },
       { name: '🏰・кланы', type: ChannelType.GuildText, topic: 'Кланы, команды и рейтинги.' },
       { name: '📅・ивенты', type: ChannelType.GuildText, topic: 'Анонсы ивентов.' },
@@ -71,9 +73,9 @@ const categories = [
     name: '💻 ПРОЕКТЫ И IT',
     channels: [
       { name: '💻・программирование', type: ChannelType.GuildText, topic: 'Обсуждение программирования.' },
-      { name: '🛠・помощь-с-кодом', type: ChannelType.GuildText, topic: 'Помощь с ошибками и кодом.' },
+      { name: '🛠・помощь-с-кодом', type: ChannelType.GuildForum, topic: 'Помощь с ошибками и кодом отдельными темами.', tags: ['JavaScript', 'Python', 'ABAP', 'Ошибка', 'Другое'], defaultReactionEmoji: { name: '🛠' } },
       { name: '📚・полезные-материалы', type: ChannelType.GuildText, topic: 'Полезные ссылки и материалы.' },
-      { name: '🚀・проекты-участников', type: ChannelType.GuildText, topic: 'Демонстрация проектов участников.' }
+      { name: '🚀・проекты-участников', type: ChannelType.GuildForum, topic: 'Проекты участников отдельными темами.', tags: ['Проект', 'Идея', 'Нужна помощь', 'Релиз', 'Другое'], defaultReactionEmoji: { name: '🚀' } }
     ]
   },
   {
@@ -94,10 +96,11 @@ const categories = [
       { name: '🛡・лог-модерации', type: ChannelType.GuildText, topic: 'Логи действий модерации.' },
       { name: '🧰・панель-модерации', type: ChannelType.GuildText, topic: 'Панель управления модерацией.' },
       { name: '📘・команды-модерации', type: ChannelType.GuildText, topic: 'Закрытый справочник команд модерации.' },
-      { name: '📨・заявки', type: ChannelType.GuildText, topic: 'Заявки пользователей.' },
-      { name: '🚨・жалобы', type: ChannelType.GuildText, topic: 'Жалобы и обращения.' },
+      { name: '📨・заявки', type: ChannelType.GuildForum, topic: 'Заявки пользователей отдельными темами.', tags: ['Модератор', 'Партнерство', 'Кастомная роль', 'Турнир', 'Другое'], defaultReactionEmoji: { name: '📨' } },
+      { name: '🚨・жалобы', type: ChannelType.GuildForum, topic: 'Жалобы и обращения отдельными темами.', tags: ['Жалоба', 'Конфликт', 'Нарушение', 'Доказательства', 'Другое'], defaultReactionEmoji: { name: '🚨' } },
       { name: '📂・тикеты', type: ChannelType.GuildText, topic: 'История и управление тикетами.' },
-      { name: '👮・чат-модеров', type: ChannelType.GuildText, topic: 'Закрытый чат модераторов.' }
+      { name: '👮・чат-модеров', type: ChannelType.GuildText, topic: 'Закрытый чат модераторов.' },
+      { name: '📁・разборы-и-кейсы', type: ChannelType.GuildForum, topic: 'Сложные разборы и модераторские кейсы отдельными темами.', tags: ['Разбор', 'Апелляция', 'Конфликт', 'Закрыто', 'Другое'], defaultReactionEmoji: { name: '📁' } }
     ]
   }
 ];

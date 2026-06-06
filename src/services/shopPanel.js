@@ -1,42 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const { getShopItems, getShopItem, buyItem } = require('./economyService');
 const { getUserStats } = require('./xpService');
-const { getOrCreateUser } = require('./dataStore');
-const { formatBoosts } = require('./inventoryService');
 const { applyDailyDealPrice, getDailyDeal } = require('./managementUxService');
-
-
-function typeLabel(type) {
-  return {
-    cosmetic: '🎨 косметика',
-    boost: '⚡ буст',
-    ticket: '🎟 билет',
-    custom: '📝 заявка',
-    role: '🎭 роль',
-    consumable: '📦 предмет'
-  }[type] || '📦 предмет';
-}
-
-function buildInventoryPayload(userId, username) {
-  const user = getOrCreateUser(userId, username || 'user');
-  const inventory = Array.isArray(user.inventory) ? user.inventory : [];
-  const description = inventory.length
-    ? inventory.map((item, index) => {
-        const qty = Number(item.quantity || 1) > 1 ? ` ×${item.quantity}` : '';
-        const useHint = ['boost', 'ticket', 'custom', 'consumable'].includes(item.type) ? `\nМожно применить через \`/use item:${item.id}\`.` : '';
-        return `**${index + 1}. ${item.name || item.id}${qty}**\nТип: ${typeLabel(item.type)}${useHint}`;
-      }).join('\n\n').slice(0, 3800)
-    : 'Инвентарь пуст. Выбери товар в магазине и нажми **Купить**.';
-
-  const embed = new EmbedBuilder()
-    .setColor(0x5865F2)
-    .setTitle('🎒 Инвентарь')
-    .setDescription(description)
-    .addFields({ name: '⚡ Активные бусты', value: formatBoosts(user), inline: false })
-    .setFooter({ text: 'ServerCore • Shop Panel' });
-
-  return { embeds: [embed], components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('shop:back').setLabel('Назад в магазин').setEmoji('⬅️').setStyle(ButtonStyle.Secondary))] };
-}
 
 const CATEGORY_LABELS = {
   all: 'Все товары',
@@ -137,7 +102,7 @@ async function handleShopButton(interaction) {
     const stats = getUserStats(interaction.user.id, interaction.user.username);
     return { content: `💰 Твой баланс: **${stats.coins || 0} монет**.`, embeds: [], components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('shop:back').setLabel('Назад').setStyle(ButtonStyle.Secondary))] };
   }
-  if (action === 'inventory') return buildInventoryPayload(interaction.user.id, interaction.user.username);
+  if (action === 'inventory') return { content: '🎒 Инвентарь доступен через `/inventory`. Купленные бусты и предметы применяются через `/use`.', embeds: [], components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('shop:back').setLabel('Назад').setStyle(ButtonStyle.Secondary))] };
   if (action === 'help') return { content: 'ℹ️ Открой категорию, выбери товар и нажми **Купить**. Для бустов и предметов после покупки используй `/inventory` и `/use`.', embeds: [], components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('shop:back').setLabel('Назад').setStyle(ButtonStyle.Secondary))] };
   if (action === 'buy') {
     const member = await interaction.guild.members.fetch(interaction.user.id);
