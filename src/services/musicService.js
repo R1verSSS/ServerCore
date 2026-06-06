@@ -1,5 +1,3 @@
-const { spawnSync } = require('node:child_process');
-const dgram = require('node:dgram');
 const {
   EmbedBuilder,
   ActionRowBuilder,
@@ -25,101 +23,6 @@ const { isModuleEnabled } = require('./moduleService');
 
 const queues = new Map();
 const MAX_PLAYLIST_ITEMS = Number(process.env.MUSIC_MAX_PLAYLIST_ITEMS || 15);
-
-const MUSIC_DEBUG = String(process.env.MUSIC_DEBUG || 'false').toLowerCase() === 'true';
-const MUSIC_FORCE_IPV4 = String(process.env.MUSIC_FORCE_IPV4 || 'true').toLowerCase() !== 'false';
-
-function musicLog(message, data = null) {
-  if (!MUSIC_DEBUG) return;
-  if (data) console.log(`[Music] ${message}`, data);
-  else console.log(`[Music] ${message}`);
-}
-
-function getPackageStatus(name) {
-  try {
-    const pkg = require(`${name}/package.json`);
-    return { ok: true, version: pkg.version || 'installed' };
-  } catch (error) {
-    return { ok: false, version: null, error: error?.message || String(error) };
-  }
-}
-
-function commandStatus(command, args = ['--version']) {
-  const result = spawnSync(command, args, { encoding: 'utf8', timeout: 5000 });
-  return {
-    ok: result.status === 0,
-    status: result.status,
-    output: String(result.stdout || result.stderr || '').split('\n')[0].slice(0, 160),
-    error: result.error?.message || null,
-  };
-}
-
-function udpDnsProbe(timeoutMs = Number(process.env.MUSIC_UDP_TEST_TIMEOUT || 3000)) {
-  return new Promise(resolve => {
-    const socket = dgram.createSocket('udp4');
-    const startedAt = Date.now();
-    const query = Buffer.from('12340100000100000000000006676f6f676c6503636f6d0000010001', 'hex');
-    const timer = setTimeout(() => {
-      try { socket.close(); } catch (_) {}
-      resolve({ ok: false, reason: 'timeout', ms: Date.now() - startedAt });
-    }, timeoutMs);
-
-    socket.once('error', error => {
-      clearTimeout(timer);
-      try { socket.close(); } catch (_) {}
-      resolve({ ok: false, reason: error?.message || String(error), ms: Date.now() - startedAt });
-    });
-
-    socket.once('message', () => {
-      clearTimeout(timer);
-      try { socket.close(); } catch (_) {}
-      resolve({ ok: true, reason: 'udp_dns_response', ms: Date.now() - startedAt });
-    });
-
-    socket.send(query, 53, '8.8.8.8', error => {
-      if (error) {
-        clearTimeout(timer);
-        try { socket.close(); } catch (_) {}
-        resolve({ ok: false, reason: error?.message || String(error), ms: Date.now() - startedAt });
-      }
-    });
-  });
-}
-
-function collectVoiceDependencyReport() {
-  const packages = ['@discordjs/voice', '@discordjs/opus', 'opusscript', 'libsodium-wrappers', 'sodium-native', 'tweetnacl', 'play-dl'];
-  const deps = Object.fromEntries(packages.map(name => [name, getPackageStatus(name)]));
-  return {
-    node: process.version,
-    platform: `${process.platform}/${process.arch}`,
-    musicEnabled: String(process.env.MUSIC_ENABLED || 'true'),
-    connectTimeout: Number(process.env.MUSIC_CONNECT_TIMEOUT || 45000),
-    forceIPv4: MUSIC_FORCE_IPV4,
-    ffmpeg: commandStatus('ffmpeg'),
-    deps,
-  };
-}
-
-async function buildMusicDiagnosticPayload() {
-  const report = collectVoiceDependencyReport();
-  const udp = await udpDnsProbe();
-  const depLines = Object.entries(report.deps).map(([name, item]) => `${item.ok ? '✅' : '❌'} ${name}${item.version ? ` ${item.version}` : ''}`);
-  const embed = new EmbedBuilder()
-    .setColor(udp.ok && report.ffmpeg.ok ? 0x57F287 : 0xFEE75C)
-    .setTitle('🧪 Диагностика Discord Voice / Music')
-    .setDescription('Проверка окружения для YouTube-аудио в voice-каналах. Если подключение зависает на `signalling`, отправь этот блок поддержке хостинга вместе с логами.')
-    .addFields(
-      { name: 'Runtime', value: [`Node: ${report.node}`, `Platform: ${report.platform}`, `MUSIC_ENABLED: ${report.musicEnabled}`, `Timeout: ${report.connectTimeout} ms`].join('\n'), inline: false },
-      { name: 'Зависимости', value: depLines.join('\n').slice(0, 1024), inline: false },
-      { name: 'ffmpeg', value: report.ffmpeg.ok ? `✅ ${report.ffmpeg.output || 'available'}` : `❌ ${report.ffmpeg.error || report.ffmpeg.output || 'not found'}`, inline: false },
-      { name: 'UDP probe', value: udp.ok ? `✅ UDP DNS ответ за ${udp.ms} ms` : `⚠️ UDP DNS не ответил: ${udp.reason} (${udp.ms} ms)`, inline: false },
-      { name: 'Важно', value: 'Успешный UDP DNS-тест не гарантирует Discord Voice, но провал указывает на проблему UDP/NAT. Discord Voice также требует корректный UDP IP discovery внутри Docker bridge.' }
-    )
-    .setFooter({ text: 'ServerCore • Voice Diagnostic' })
-    .setTimestamp();
-  return { embeds: [embed], components: [] };
-}
-
 
 function isMusicEnabled() {
   return String(process.env.MUSIC_ENABLED || 'true').toLowerCase() !== 'false' && isModuleEnabled('music');
@@ -257,16 +160,6 @@ async function ensureConnection(interaction) {
       adapterCreator: voiceChannel.guild.voiceAdapterCreator,
       selfDeaf: true,
       selfMute: false,
-      forceIPv4: MUSIC_FORCE_IPV4,
-    });
-    connection.on('stateChange', (oldState, newState) => {
-      musicLog('Voice connection state', {
-        guildId: interaction.guildId,
-        channelId: voiceChannel.id,
-        oldStatus: oldState?.status,
-        newStatus: newState?.status,
-        networking: newState?.networking?.state?.code || newState?.networking?.state?.ws?.readyState || null,
-      });
     });
   }
 
@@ -274,8 +167,7 @@ async function ensureConnection(interaction) {
   connection.subscribe(state.player);
 
   try {
-    musicLog('Waiting for VoiceConnectionStatus.Ready', { guildId: interaction.guildId, channelId: voiceChannel.id, timeout: Number(process.env.MUSIC_CONNECT_TIMEOUT || 45000) });
-    await entersState(connection, VoiceConnectionStatus.Ready, Number(process.env.MUSIC_CONNECT_TIMEOUT || 45000));
+    await entersState(connection, VoiceConnectionStatus.Ready, Number(process.env.MUSIC_CONNECT_TIMEOUT || 30000));
   } catch (error) {
     const message = error?.message || String(error);
     console.error('[Music] Ошибка подключения к voice-каналу:', {
@@ -283,9 +175,6 @@ async function ensureConnection(interaction) {
       channelId: voiceChannel.id,
       channelName: voiceChannel.name,
       status: connection.state?.status,
-      networkingStatus: connection.state?.networking?.state?.code || null,
-      forceIPv4: MUSIC_FORCE_IPV4,
-      timeout: Number(process.env.MUSIC_CONNECT_TIMEOUT || 45000),
       error: message,
     });
     try { connection.destroy(); } catch (_) {}
@@ -446,8 +335,7 @@ function buildMusicStatusPayload(guildId) {
       { name: 'MUSIC_ENABLED', value: String(process.env.MUSIC_ENABLED || 'true'), inline: true },
       { name: 'Voice', value: state?.connection ? `Подключение: ${state.connection.state?.status || 'unknown'}` : 'Нет активного подключения', inline: false },
       { name: 'Очередь', value: state ? `Сейчас: ${state.current?.title || 'ничего'}\nВ очереди: ${state.queue.length}` : 'Очередь пуста', inline: false },
-      { name: 'Окружение', value: `ffmpeg: ${commandStatus('ffmpeg').ok ? '✅' : '❌'}\n@discordjs/opus: ${getPackageStatus('@discordjs/opus').ok ? '✅' : '❌'}\nsodium-native: ${getPackageStatus('sodium-native').ok ? '✅' : '❌'}\nforceIPv4: ${MUSIC_FORCE_IPV4}`, inline: false },
-      { name: 'Подсказка', value: enabled ? 'Если подключение зависает на `signalling`, выполни `/music diagnose` и отправь результат поддержке хостинга.' : 'Для включения поставь `MUSIC_ENABLED=true`, затем redeploy.' }
+      { name: 'Подсказка', value: enabled ? 'Если подключение зависает на `signalling`, хостинг, вероятно, не поддерживает Discord Voice/UDP.' : 'Для включения поставь `MUSIC_ENABLED=true`, затем redeploy.' }
     )
     .setFooter({ text: 'ServerCore • Music Status' });
   return { embeds: [embed], components: [] };
@@ -521,7 +409,6 @@ module.exports = {
   isMusicEnabled,
   musicDisabledPayload,
   buildMusicStatusPayload,
-  buildMusicDiagnosticPayload,
   buildMusicPanel,
   buildPlayModal,
   buildNowPlayingEmbed,

@@ -1,13 +1,4 @@
 
-## v24.1.33 — Bothost Discord Voice / Music Diagnostic Fix
-
-- Dockerfile дополнен `ffmpeg`, `libsodium23`, `dnsutils`, `netcat-openbsd`.
-- Добавлены voice-зависимости `@discordjs/opus`, `opusscript`, `sodium-native`, `tweetnacl`.
-- Добавлена команда `/music diagnose` и npm-скрипт `npm run voice:diagnose`.
-- Добавлены расширенные логи подключения Discord Voice, `MUSIC_DEBUG`, `MUSIC_FORCE_IPV4`, увеличенный timeout.
-- Патч помогает отличить проблему зависимостей от проблемы Docker/NAT/UDP на ноде хостинга.
-
-
 ## v24.1.24 — UX Flow Smart Center Hotfix
 
 - Исправлены кнопки под `/me`: `Магазин`, `Профиль`, `Достижения`, `Веб-панель`.
@@ -111,3 +102,9 @@ APPLICATIONS_CHANNEL_ID=1512791242000564229
 - Обновлена ссылка веб-панели: `https://bot-1780769817-2659-r1vers.bothost.tech/login`.
 - Жалобы из панели заявок направляются в Forum `COMPLAINTS_CHANNEL_ID=1512791244965806170`.
 - Остальные заявки направляются в Forum `APPLICATIONS_CHANNEL_ID=1512791242000564229`.
+
+## v24.1.34 — Bothost Discord Voice build tools fix
+
+- Добавлены системные пакеты в Dockerfile для сборки `@discordjs/opus`: `python3`, `make`, `g++`, `pkg-config`, `libopus-dev`.
+- Оставлены voice-зависимости для диагностики Discord Voice: `@discordjs/voice`, `@discordjs/opus`, `opusscript`, `sodium-native`, `tweetnacl`, `libsodium-wrappers`.
+- Dockerfile дополнительно проверяет наличие `ffmpeg` и установленных voice-пакетов.

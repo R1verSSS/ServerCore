@@ -2,16 +2,29 @@ FROM node:20-bookworm-slim
 
 WORKDIR /app
 
-# Discord Voice/YouTube audio needs ffmpeg and sodium runtime libraries.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg libsodium23 ca-certificates dnsutils netcat-openbsd iputils-ping \
-    && rm -rf /var/lib/apt/lists/*
-
 ENV NODE_ENV=production
 ENV NPM_CONFIG_AUDIT=false
 ENV NPM_CONFIG_FUND=false
 ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ffmpeg \
+        libsodium23 \
+        libsodium-dev \
+        libopus-dev \
+        python3 \
+        make \
+        g++ \
+        pkg-config \
+        ca-certificates \
+        dnsutils \
+        netcat-openbsd \
+        iputils-ping \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PYTHON=/usr/bin/python3
 
 COPY package*.json ./
 
