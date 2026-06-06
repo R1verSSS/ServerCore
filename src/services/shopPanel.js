@@ -1,6 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const { getShopItems, getShopItem, buyItem } = require('./economyService');
 const { getUserStats } = require('./xpService');
+const { applyDailyDealPrice, getDailyDeal } = require('./managementUxService');
 
 const CATEGORY_LABELS = {
   all: 'Все товары',
@@ -38,8 +39,11 @@ function buildShopPanel() {
   return { embeds: [embed], components: [row, row2] };
 }
 
-function itemLine(item) {
-  return `**${item.name}** — ${item.price} монет\nID: \`${item.id}\`\n${item.description || 'Без описания'}`;
+function itemLine(item, allItems = []) {
+  const pricing = applyDailyDealPrice(item, allItems);
+  const priceText = pricing.isDailyDeal ? `~~${pricing.originalPrice}~~ **${pricing.price}** монет • скидка ${pricing.discountPercent}%` : `${item.price} монет`;
+  const dealText = pricing.isDailyDeal ? ' 🔥 **Товар дня**' : '';
+  return `**${item.name}**${dealText} — ${priceText}\nID: \`${item.id}\`\n${item.description || 'Без описания'}`;
 }
 
 function buildShopCategoryPayload(category = 'all') {
@@ -49,7 +53,7 @@ function buildShopCategoryPayload(category = 'all') {
   const embed = new EmbedBuilder()
     .setColor(0x2ECC71)
     .setTitle(`🛍 ${CATEGORY_LABELS[category] || 'Категория'}`)
-    .setDescription(shown.length ? shown.map(itemLine).join('\n\n').slice(0, 3800) : 'В этой категории пока нет товаров.')
+    .setDescription(shown.length ? shown.map(item => itemLine(item, getShopItems())).join('\n\n').slice(0, 3800) : 'В этой категории пока нет товаров.')
     .setFooter({ text: 'Выбери товар в меню ниже, чтобы открыть карточку покупки.' });
   const components = [];
   if (shown.length) {
@@ -70,8 +74,9 @@ function buildShopItemPayload(itemId, userId = null, username = null) {
   const item = getShopItem(itemId);
   if (!item) return { content: '❌ Товар не найден.', embeds: [], components: [] };
   const stats = userId ? getUserStats(userId, username || 'user') : null;
+  const pricing = applyDailyDealPrice(item, getShopItems());
   const fields = [
-    { name: 'Цена', value: `${item.price} монет`, inline: true },
+    { name: 'Цена', value: pricing.isDailyDeal ? `~~${pricing.originalPrice}~~ **${pricing.price}** монет (-${pricing.discountPercent}%)` : `${item.price} монет`, inline: true },
     { name: 'Тип', value: item.type || 'item', inline: true },
   ];
   if (stats) fields.push({ name: 'Твой баланс', value: `${stats.coins || 0} монет`, inline: true });

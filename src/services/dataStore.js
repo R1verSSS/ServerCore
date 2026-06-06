@@ -65,6 +65,11 @@ const EMPTY_DB = {
     backups: { enabled: true }
   },
   channelRules: {},
+  economyHistory: [],
+  ticketTemplates: {},
+  panelRegistry: {},
+  onboardingProgress: {},
+  shopDeals: {},
   productionChecks: [],
   tempVoiceSettings: {
     createChannelName: '➕・создать-комнату',
@@ -118,6 +123,11 @@ function mergeDefaults(db) {
   if (!normalized.moduleSettings || typeof normalized.moduleSettings !== 'object') normalized.moduleSettings = clone(EMPTY_DB.moduleSettings);
   normalized.moduleSettings = { ...clone(EMPTY_DB.moduleSettings), ...(normalized.moduleSettings || {}) };
   if (!normalized.channelRules || typeof normalized.channelRules !== 'object') normalized.channelRules = {};
+  if (!Array.isArray(normalized.economyHistory)) normalized.economyHistory = [];
+  if (!normalized.ticketTemplates || typeof normalized.ticketTemplates !== 'object') normalized.ticketTemplates = {};
+  if (!normalized.panelRegistry || typeof normalized.panelRegistry !== 'object') normalized.panelRegistry = {};
+  if (!normalized.onboardingProgress || typeof normalized.onboardingProgress !== 'object') normalized.onboardingProgress = {};
+  if (!normalized.shopDeals || typeof normalized.shopDeals !== 'object') normalized.shopDeals = {};
   if (!Array.isArray(normalized.productionChecks)) normalized.productionChecks = [];
   if (!normalized.tempVoiceRooms || typeof normalized.tempVoiceRooms !== 'object') normalized.tempVoiceRooms = {};
   if (!normalized.tempVoiceSettings || typeof normalized.tempVoiceSettings !== 'object') {

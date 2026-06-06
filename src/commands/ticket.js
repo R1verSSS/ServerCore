@@ -2,11 +2,28 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const { safeDefer, safeEdit } = require('../utils/safeInteraction');
 const { buildUnlockedText } = require('../services/achievementService');
 const { createTicket } = require('../services/ticketService');
+const { getTicketTemplate } = require('../services/managementUxService');
+
+const TEMPLATE_CHOICES = [
+  { name: '🛠️ Тех. проблема', value: 'tech' },
+  { name: '🚨 Жалоба', value: 'complaint' },
+  { name: '❓ Вопрос', value: 'question' },
+  { name: '📨 Заявка', value: 'application' },
+  { name: '🤝 Партнерство', value: 'partner' },
+  { name: '📌 Другое', value: 'other' }
+];
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('ticket')
     .setDescription('Создать приватное обращение к администрации')
+    .addStringOption(option =>
+      option
+        .setName('шаблон')
+        .setDescription('Тип обращения')
+        .setRequired(false)
+        .addChoices(...TEMPLATE_CHOICES)
+    )
     .addStringOption(option =>
       option
         .setName('причина')
@@ -18,7 +35,10 @@ module.exports = {
   async execute(interaction) {
     await safeDefer(interaction, { flags: MessageFlags.Ephemeral });
 
-    const reason = interaction.options.getString('причина') || 'Не указана';
+    const templateId = interaction.options.getString('шаблон') || 'other';
+    const template = getTicketTemplate(templateId);
+    const reasonText = interaction.options.getString('причина') || template?.prompt || 'Не указана';
+    const reason = `${template?.emoji || '🎫'} ${template?.label || 'Другое'}: ${reasonText}`.slice(0, 240);
     const result = await createTicket(interaction, reason);
 
     if (!result.ok && result.reason === 'already_open') {
@@ -38,6 +58,7 @@ module.exports = {
       .setTitle('✅ Тикет создан')
       .setDescription([
         `Твой приватный канал обращения: ${result.channel}`,
+        template?.prompt ? `\n**Шаблон:** ${template.emoji} ${template.label}\n${template.prompt}` : null,
         result.unlockedAchievements?.length ? `\n🏅 **Новые достижения:**\n${buildUnlockedText(result.unlockedAchievements)}` : null
       ].filter(Boolean).join('\n'))
       .addFields({ name: 'Причина', value: result.ticket.reason, inline: false })

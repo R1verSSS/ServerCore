@@ -3,6 +3,7 @@ const { addXpToMember } = require('./xpService');
 const { awardAchievement } = require('./achievementService');
 const { getSettings } = require('./settingsService');
 const { addItemToInventory, hasInventoryItem, applyBoostToAmount } = require('./inventoryService');
+const { recordEconomy, applyDailyDealPrice } = require('./managementUxService');
 
 const DAILY_COINS = 100;
 const DAILY_XP = 25;
@@ -92,6 +93,8 @@ async function claimDaily(member) {
     return existing;
   });
 
+  recordEconomy(discordId, username, 'daily', dailyCoins, { baseCoins, dailyXp });
+
   const xpResult = await addXpToMember(member, dailyXp);
   const dailyAchievement = awardAchievement(discordId, username, 'first_daily');
   const unlockedAchievements = [
@@ -105,13 +108,15 @@ async function claimDaily(member) {
 async function buyItem(member, itemId) {
   const item = getShopItem(itemId);
   if (!item) return { ok: false, reason: 'not_found' };
+  const pricing = applyDailyDealPrice(item, getShopItems());
+  const effectivePrice = pricing.price;
 
   const discordId = member.user.id;
   const username = member.user.username;
   const user = getOrCreateUser(discordId, username);
   const coins = user.coins || 0;
 
-  if (coins < item.price) return { ok: false, reason: 'not_enough_coins', item, balance: coins, missing: item.price - coins };
+  if (coins < effectivePrice) return { ok: false, reason: 'not_enough_coins', item: { ...item, price: effectivePrice, originalPrice: item.price, isDailyDeal: pricing.isDailyDeal }, balance: coins, missing: effectivePrice - coins };
 
   if (item.type === 'cosmetic' && hasInventoryItem(user, item.id)) return { ok: false, reason: 'already_owned_cosmetic', item, balance: coins };
 
@@ -124,7 +129,7 @@ async function buyItem(member, itemId) {
 
   const updatedUser = updateUser(discordId, existing => {
     existing.username = username;
-    existing.coins = Math.max((existing.coins || 0) - item.price, 0);
+    existing.coins = Math.max((existing.coins || 0) - effectivePrice, 0);
     return existing;
   });
 
@@ -134,7 +139,9 @@ async function buyItem(member, itemId) {
 
   const purchaseAchievement = awardAchievement(discordId, username, 'first_purchase');
 
-  return { ok: true, item, balance: updatedUser.coins || 0, user: updatedUser, unlockedAchievements: purchaseAchievement.awarded ? [purchaseAchievement.achievement] : [] };
+  recordEconomy(discordId, username, 'purchase', -effectivePrice, { itemId: item.id, itemName: item.name, originalPrice: item.price, dailyDeal: pricing.isDailyDeal });
+
+  return { ok: true, item: { ...item, price: effectivePrice, originalPrice: item.price, isDailyDeal: pricing.isDailyDeal, discountPercent: pricing.discountPercent }, balance: updatedUser.coins || 0, user: updatedUser, unlockedAchievements: purchaseAchievement.awarded ? [purchaseAchievement.achievement] : [] };
 }
 
 module.exports = { DAILY_COINS, DAILY_XP, DEFAULT_SHOP_ITEMS, getShopItems, getShopItem, getBalance, claimDaily, buyItem, normalizeShopItem };

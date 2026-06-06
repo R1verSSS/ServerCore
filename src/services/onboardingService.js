@@ -1,34 +1,59 @@
 const { ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { buildMainMenuPayload } = require('./userMenuService');
+const { getOnboardingProgress, markOnboarding } = require('./managementUxService');
 
 function findChannel(guild, name) {
   return guild?.channels.cache.find(ch => ch.type === ChannelType.GuildText && ch.name === name) || null;
 }
 
+function stepLine(progress, key, label) {
+  return `${progress.steps?.[key] ? '✅' : '⬜'} ${label}`;
+}
+
 function buildWelcomePayload(member) {
+  const progress = getOnboardingProgress(member.id);
   const embed = new EmbedBuilder()
     .setColor(0x57F287)
     .setTitle('👋 Добро пожаловать!')
-    .setDescription(`Привет, ${member}! Чтобы быстро освоиться на сервере, начни с короткого чек-листа ниже.`)
+    .setDescription(`Привет, ${member}! Пройди короткий стартовый маршрут и освойся на сервере.`)
     .addFields(
-      { name: '1. Правила', value: 'Прочитай правила и используй каналы по назначению.', inline: false },
-      { name: '2. Роли', value: 'Выбери роли по интересам, чтобы видеть нужные разделы.', inline: false },
-      { name: '3. Меню', value: 'Открой меню сервера: там собраны профиль, экономика, ивенты, voice-комнаты и поддержка.', inline: false },
-      { name: '4. Первый шаг', value: 'Попробуй `/daily`, `/profile` или зайди в `➕・создать-комнату`.', inline: false }
+      { name: '📋 Твой стартовый прогресс', value: [
+        stepLine(progress, 'rules', 'Прочитать правила'),
+        stepLine(progress, 'roles', 'Получить роли'),
+        stepLine(progress, 'menu', 'Открыть главное меню'),
+        stepLine(progress, 'daily', 'Получить daily'),
+        stepLine(progress, 'profile', 'Посмотреть профиль')
+      ].join('\n'), inline: false },
+      { name: 'Подсказка', value: 'Нажимай кнопки ниже. Прогресс сохраняется в базе и помогает новичкам не потеряться.', inline: false }
     )
     .setFooter({ text: 'ServerCore • Onboarding' })
     .setTimestamp();
 
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('menu:quick:roles').setLabel('Выбрать роли').setEmoji('✅').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('menu:back').setLabel('Открыть меню').setEmoji('🧭').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('menu:quick:ticket').setLabel('Нужна помощь').setEmoji('🎫').setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId('onboarding:rules').setLabel('Правила').setEmoji('📜').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('onboarding:roles').setLabel('Роли').setEmoji('✅').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('onboarding:menu').setLabel('Меню').setEmoji('🧭').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('onboarding:daily').setLabel('Daily').setEmoji('🎁').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('onboarding:profile').setLabel('Профиль').setEmoji('👤').setStyle(ButtonStyle.Secondary)
   );
 
   return { embeds: [embed], components: [row] };
 }
 
+function buildOnboardingStepPayload(interaction, step) {
+  markOnboarding(interaction.user.id, step);
+  const messages = {
+    rules: '📜 Правила обычно находятся в канале `📜・правила`. Прочитай их перед активностью.',
+    roles: '✅ Роли можно выбрать через канал `✅・получить-роли` или команду `/roles`.',
+    menu: '🧭 Главное меню доступно через `/menu open`.',
+    daily: '🎁 Получи ежедневную награду командой `/daily`.',
+    profile: '👤 Профиль доступен через `/profile`, `/rank` и `/profilecard`.'
+  };
+  return { content: messages[step] || '✅ Шаг отмечен.', embeds: [], components: [] };
+}
+
 async function sendWelcome(member) {
+  markOnboarding(member.id, 'joined');
   const channel = findChannel(member.guild, '💬・общий-чат') || findChannel(member.guild, '🧭・навигация') || findChannel(member.guild, '🤖・команды-бота');
   if (!channel || typeof channel.send !== 'function') return false;
   await channel.send(buildWelcomePayload(member));
@@ -42,4 +67,4 @@ async function postNavigationMenu(guild) {
   return true;
 }
 
-module.exports = { buildWelcomePayload, sendWelcome, postNavigationMenu };
+module.exports = { buildWelcomePayload, buildOnboardingStepPayload, sendWelcome, postNavigationMenu };

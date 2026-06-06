@@ -30,6 +30,7 @@ const { buildPublicCommandsPanel, buildModerationCommandsPanel, commandsHtml } =
 const { buildModuleStatus, setModuleEnabled } = require('../services/moduleService');
 const { listChannelRules, setChannelRule } = require('../services/channelRulesService');
 const { buildProductionReport } = require('../services/productionCheckService');
+const { getEconomyHistory, getTicketTemplates, getPanelRegistry, registerPanelPublish, getRoleUsage, getDailyDeal } = require('../services/managementUxService');
 
 const started = { value: false };
 const loginAttempts = new Map();
@@ -100,10 +101,10 @@ function getStats(client) {
 function layout(title, body, message = '', warning = '') {
   const navGroups = [
     { title: 'Главное', icon: '🏠', links: [['/', 'Дашборд'], ['/quick-actions', 'Быстрые действия'], ['/modules', 'Модули'], ['/panels', 'Панели Discord'], ['/project', 'Проект'], ['/health', 'Health'], ['/network', 'Сеть'], ['/docs', 'Документация']] },
-    { title: 'Пользователи', icon: '👥', links: [['/users', 'Участники'], ['/profiles', 'Профили'], ['/economy', 'Экономика'], ['/shop-admin', 'Магазин']] },
-    { title: 'Активности', icon: '🎮', links: [['/events', 'Ивенты'], ['/voice', 'Voice'], ['/suggestions-panel', 'Предложения'], ['/notifications', 'Уведомления'], ['/clans', 'Кланы'], ['/applications', 'Заявки'], ['/tournaments', 'Турниры'], ['/season', 'Сезон']] },
-    { title: 'Модерация', icon: '🛡️', links: [['/tickets', 'Тикеты'], ['/moderation', 'Модерация'], ['/channel-rules', 'Правила каналов'], ['/access', 'Доступ и роли'], ['/automod', 'AutoMod'], ['/logs', 'Логи'], ['/audit', 'Audit']] },
-    { title: 'Система', icon: '⚙️', links: [['/settings', 'Настройки'], ['/maintenance', 'Обслуживание'], ['/production', 'Production-check'], ['/hosting', 'Хостинг'], ['/backups', 'Бэкапы'], ['/integrations', 'Интеграции'], ['/commands', 'Команды']] },
+    { title: 'Пользователи', icon: '👥', links: [['/users', 'Участники'], ['/profiles', 'Профили'], ['/economy', 'Экономика'], ['/economy-history', 'История экономики'], ['/shop-admin', 'Магазин'], ['/shop-deals', 'Скидки']] },
+    { title: 'Активности', icon: '🎮', links: [['/onboarding', 'Онбординг'], ['/events', 'Ивенты'], ['/voice', 'Voice'], ['/suggestions-panel', 'Предложения'], ['/notifications', 'Уведомления'], ['/clans', 'Кланы'], ['/applications', 'Заявки'], ['/tournaments', 'Турниры'], ['/season', 'Сезон']] },
+    { title: 'Модерация', icon: '🛡️', links: [['/tickets', 'Тикеты'], ['/ticket-templates', 'Шаблоны тикетов'], ['/moderation', 'Модерация'], ['/channel-rules', 'Правила каналов'], ['/access', 'Доступ и роли'], ['/automod', 'AutoMod'], ['/logs', 'Логи'], ['/audit', 'Audit']] },
+    { title: 'Система', icon: '⚙️', links: [['/settings', 'Настройки'], ['/panel-center', 'Центр панелей'], ['/roles', 'Роли'], ['/maintenance', 'Обслуживание'], ['/production', 'Production-check'], ['/hosting', 'Хостинг'], ['/backups', 'Бэкапы'], ['/integrations', 'Интеграции'], ['/commands', 'Команды']] },
   ];
   const nav = navGroups.map(group => `<details class="nav-group" open><summary>${group.icon} ${group.title}</summary>${group.links.map(([href, label]) => `<a href="${href}">${label}</a>`).join('')}</details>`).join('');
   return `<!doctype html>
@@ -329,6 +330,61 @@ function startWebPanel(client) {
   app.get('/commands', (req, res) => {
     const body = `<div class="card"><h2>📚 Справочник команд</h2><p class="muted">Описание всех команд сгруппировано по разделам. Для обычных пользователей рекомендуйте <code>/menu open</code>, а для модерации — канал <code>📘・команды-модерации</code>.</p></div>${commandsHtml()}`;
     res.send(layout('Команды', body));
+  });
+
+
+  app.get('/economy-history', (req, res) => {
+    const rows = getEconomyHistory(null, 200);
+    const q = queryValue(req, 'q').toLowerCase();
+    let filtered = rows;
+    if (q) filtered = filtered.filter(r => containsText(r.username, q) || containsText(r.userId, q) || containsText(r.type, q) || containsText(r.meta?.itemName, q));
+    const pg = paginate(filtered, req, 30);
+    const toolbar = tableToolbar('/economy-history', req, [['date','Дата']], [['all','Все']]);
+    const bodyRows = pg.items.map(r => `<tr><td>${escapeHtml(r.createdAt || '')}</td><td><b>${escapeHtml(r.username || r.userId)}</b><div class="small muted">${escapeHtml(r.userId)}</div></td><td>${escapeHtml(r.type)}</td><td>${Number(r.amount || 0) >= 0 ? '+' : ''}${Number(r.amount || 0)}</td><td>${escapeHtml(r.meta?.itemName || JSON.stringify(r.meta || {}))}</td></tr>`).join('');
+    const body = `<div class="card"><h2>📜 История экономики</h2><p class="muted">Журнал daily, покупок и будущих операций экономики. В Discord доступно через <code>/balance history:true</code>.</p>${toolbar}<div class="table-wrap"><table><tr><th>Дата</th><th>Участник</th><th>Тип</th><th>Сумма</th><th>Детали</th></tr>${bodyRows || '<tr><td colspan="5">История пока пустая.</td></tr>'}</table></div>${pager('/economy-history', req, pg.page, pg.pages)}</div>`;
+    res.send(layout('История экономики', body, req.query.message));
+  });
+
+  app.get('/shop-deals', (req, res) => {
+    const items = getShopItemsFromDb();
+    const deal = getDailyDeal(items);
+    const item = deal ? items.find(i => i.id === deal.itemId) : null;
+    const body = `<div class="grid"><div class="card"><h2>🔥 Товар дня</h2>${item ? `<p><b>${escapeHtml(item.name)}</b></p><p class="muted">Скидка ${deal.discountPercent}% действует сегодня. Показывается в кнопочной витрине магазина.</p><p class="code">${escapeHtml(item.id)}</p>` : '<p class="muted">Товар дня отключен или товаров нет.</p>'}</div><div class="card"><h2>Настройки</h2><p class="muted">Через переменные окружения:</p><p class="code">SHOP_DAILY_DEAL_ENABLED=true\nSHOP_DAILY_DEAL_DISCOUNT=20</p></div></div><div class="card section"><h2>🛒 Товары</h2>${renderShopTable(items)}</div>`;
+    res.send(layout('Скидки магазина', body, req.query.message));
+  });
+
+  app.get('/ticket-templates', (req, res) => {
+    const templates = getTicketTemplates();
+    const rows = templates.map(t => `<tr><td>${escapeHtml(t.emoji || '🎫')} <b>${escapeHtml(t.label)}</b><div class="small muted">${escapeHtml(t.id)}</div></td><td>${escapeHtml(t.description || '')}</td><td>${escapeHtml(t.prompt || '')}</td></tr>`).join('');
+    const body = `<div class="card"><h2>🎫 Шаблоны тикетов</h2><p class="muted">Пользователь выбирает шаблон в <code>/ticket</code>, а бот добавляет правильную структуру обращения.</p></div><div class="card section wide"><table><tr><th>Шаблон</th><th>Описание</th><th>Подсказка пользователю</th></tr>${rows}</table></div>`;
+    res.send(layout('Шаблоны тикетов', body));
+  });
+
+  app.get('/panel-center', (req, res) => {
+    const guild = getGuild(client);
+    const panels = getPanelRegistry(guild);
+    const rows = panels.map(pn => `<tr><td><b>${escapeHtml(pn.label)}</b><div class="small muted">${escapeHtml(pn.id)}</div></td><td>${escapeHtml(pn.channelName || pn.channel)}</td><td>${statusBadge(pn.status)}</td><td>${pn.publishedAt ? escapeHtml(pn.publishedAt) : '—'}</td><td><form method="post" action="/actions/publish-panel"><input type="hidden" name="type" value="${escapeHtml(pn.id)}"/><select name="channelId">${getChannelOptions(guild, pn.channelId)}</select><button>Опубликовать/обновить</button></form></td></tr>`).join('');
+    const body = `<div class="card"><h2>📌 Центр управления Discord-панелями 2.0</h2><p class="muted">Показывает статус ключевых панелей: опубликована, найден только канал или отсутствует. Здесь можно быстро обновить любую панель.</p></div><div class="card section wide"><table><tr><th>Панель</th><th>Канал</th><th>Статус</th><th>Последнее обновление</th><th>Действие</th></tr>${rows}</table></div>`;
+    res.send(layout('Центр панелей', body, req.query.message, req.query.warning));
+  });
+
+  app.get('/roles', (req, res) => {
+    const guild = getGuild(client);
+    const botMember = guild?.members.me;
+    const roles = guild?.roles.cache.sort((a, b) => b.position - a.position).filter(r => r.name !== '@everyone').map(r => r) || [];
+    const rows = roles.map(role => {
+      const manageable = botMember ? botMember.roles.highest.comparePositionTo(role) > 0 : false;
+      return `<tr><td><b>${escapeHtml(role.name)}</b><div class="small muted">${escapeHtml(role.id)}</div></td><td>${role.position}</td><td>${role.members.size}</td><td>${escapeHtml(getRoleUsage(role.name))}</td><td>${manageable ? '<span class="status-ok">✅ бот выше</span>' : '<span class="status-warn">⚠️ роль выше/равна боту</span>'}</td></tr>`;
+    }).join('');
+    const body = `<div class="card"><h2>🏷 Роли и иерархия</h2><p class="muted">Проверка, какие роли используются доступом, магазином, уровнями и сезоном. Для выдачи роли бот должен быть выше нее.</p></div><div class="card section wide"><table><tr><th>Роль</th><th>Позиция</th><th>Участников</th><th>Использование</th><th>Иерархия</th></tr>${rows || '<tr><td colspan="5">Роли не найдены.</td></tr>'}</table></div>`;
+    res.send(layout('Роли', body));
+  });
+
+  app.get('/onboarding', (req, res) => {
+    const db = readDatabase();
+    const rows = Object.values(db.onboardingProgress || {}).slice(-100).reverse().map(p => `<tr><td>${escapeHtml(p.userId)}</td><td>${Object.keys(p.steps || {}).map(k => `<span class="pill">${escapeHtml(k)}</span>`).join(' ') || '—'}</td><td>${escapeHtml(p.updatedAt || p.createdAt || '')}</td></tr>`).join('');
+    const body = `<div class="card"><h2>👋 Онбординг новичков</h2><p class="muted">Новые участники получают чек-лист: правила, роли, меню, daily, профиль. Нажатия по кнопкам сохраняются как прогресс.</p><p class="code">Канал: 💬・общий-чат / 🧭・навигация\nКоманда пользователя: /menu open</p></div><div class="card section wide"><h2>Последний прогресс</h2><table><tr><th>User ID</th><th>Шаги</th><th>Обновлено</th></tr>${rows || '<tr><td colspan="3">Данных пока нет.</td></tr>'}</table></div>`;
+    res.send(layout('Онбординг', body));
   });
 
   app.get('/users', (req, res) => {
@@ -569,6 +625,7 @@ function startWebPanel(client) {
     else if (type === 'shop') ok = await safeSend(channel, buildShopPanel());
     else if (type === 'commands') ok = await safeSend(channel, buildPublicCommandsPanel());
     else if (type === 'modcommands') ok = await safeSend(channel, buildModerationCommandsPanel());
+    if (ok) registerPanelPublish(type, channel.id, channel.name, 'web-panel');
     addAudit('panel_publish', { name: 'Web Panel' }, { source: 'web', type, channelId: req.body.channelId, ok });
     res.redirect(redirect('/panels', ok ? 'Панель опубликована.' : 'Не удалось опубликовать панель. Проверь права бота и канал.'));
   });

@@ -24,7 +24,7 @@ const { joinLfg, leaveLfg, closeLfg, buildLfgEmbed, buildLfgButtons } = require(
 const { handleVoiceStateUpdate, handleVoiceButton, buildVoiceInfoEmbed, buildRenameModal, buildLimitModal, handleRenameModal, handleLimitModal, handleInviteSelect, buildVoiceActionPayload } = require('./services/tempVoiceService');
 const { startAutoBackupScheduler } = require('./services/backupService');
 const { buildMainMenuPayload, buildSectionPayload, buildQuickPayload } = require('./services/userMenuService');
-const { sendWelcome } = require('./services/onboardingService');
+const { sendWelcome, buildOnboardingStepPayload } = require('./services/onboardingService');
 const { buildHelpPayload } = require('./commands/help');
 const { error: errorPayload } = require('./services/responseService');
 const { getMaintenance, isMaintenanceCommandAllowed } = require('./services/maintenanceService');
@@ -287,6 +287,14 @@ client.on('interactionCreate', async interaction => {
 
 
 
+
+
+    if (interaction.isButton() && interaction.customId.startsWith('onboarding:')) {
+      await safeDefer(interaction, true);
+      const step = interaction.customId.split(':')[1] || 'menu';
+      await safeEdit(interaction, buildOnboardingStepPayload(interaction, step));
+      return;
+    }
 
     if (interaction.isButton() && interaction.customId.startsWith('me:')) {
       await safeDefer(interaction, true);

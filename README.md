@@ -121,3 +121,8 @@ npm run setup
 ```
 
 Подробнее: `docs/music-and-channel-cleanup.md`.
+
+
+## v24.1 Server Management UX Upgrade
+
+Добавлены onboarding-чеклист, шаблоны тикетов, история экономики, товар дня, центр панелей 2.0, страница ролей и улучшения управления сервером.
