@@ -1,6 +1,6 @@
 {
   "name": "servercore-discord-bot",
-  "version": "24.1.35",
+  "version": "24.1.36",
   "description": "ServerCore Discord bot v24.1 user experience flow upgrade",
   "main": "http-wrapper.js",
   "scripts": {
@@ -23,7 +23,7 @@
     "voice:diagnose": "node src/tools/voice-diagnose.js"
   },
   "dependencies": {
-    "@discordjs/voice": "^0.17.0",
+    "@discordjs/voice": "^0.19.0",
     "discord.js": "^14.18.0",
     "dotenv": "^16.4.7",
     "express": "^4.19.2",

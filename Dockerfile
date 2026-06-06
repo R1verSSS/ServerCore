@@ -7,6 +7,26 @@ ENV NPM_CONFIG_AUDIT=false
 ENV NPM_CONFIG_FUND=false
 ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
+ENV PYTHON=/usr/bin/python3
+ENV npm_config_python=/usr/bin/python3
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        python3 \
+        make \
+        g++ \
+        pkg-config \
+        ffmpeg \
+        libsodium23 \
+        libsodium-dev \
+        libopus-dev \
+        dnsutils \
+        netcat-openbsd \
+        iputils-ping \
+    && python3 --version \
+    && ffmpeg -version >/dev/null \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
 
@@ -21,7 +41,12 @@ RUN corepack enable \
     && test -f node_modules/@discordjs/voice/package.json \
     && test -f node_modules/play-dl/package.json \
     && test -f node_modules/libsodium-wrappers/package.json \
-    && test -f node_modules/better-sqlite3/package.json
+    && test -f node_modules/sodium-native/package.json \
+    && test -f node_modules/@discordjs/opus/package.json \
+    && test -f node_modules/opusscript/package.json \
+    && test -f node_modules/tweetnacl/package.json \
+    && test -f node_modules/better-sqlite3/package.json \
+    && test -f node_modules/@discordjs/opus/prebuild/node-v115-napi-v3-linux-x64-glibc-2.36/opus.node || test -f node_modules/@discordjs/opus/build/Release/opus.node
 
 COPY . .
 

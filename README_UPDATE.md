@@ -108,3 +108,9 @@ APPLICATIONS_CHANNEL_ID=1512791242000564229
 - Добавлен npm-скрипт `voice:diagnose`.
 - Добавлен файл `src/tools/voice-diagnose.js`.
 - Диагностика проверяет `ffmpeg`, `@discordjs/voice`, `@discordjs/opus`, `sodium-native`, `libsodium-wrappers`, `tweetnacl`, `play-dl` и базовый UDP-probe.
+
+## v24.1.36 — Bothost Voice Build + Diagnose combined fix
+
+- Восстановлены Dockerfile build tools для `@discordjs/opus`: `python3`, `make`, `g++`, `pkg-config`, `libopus-dev`, `libsodium-dev`.
+- Сохранён `npm run voice:diagnose` и файл `src/tools/voice-diagnose.js`.
+- Добавлены проверки voice-зависимостей в Dockerfile.
