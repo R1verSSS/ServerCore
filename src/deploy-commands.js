@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { REST, Routes } = require('discord.js');
 const { permissionBitsForCommand, permissionBitsForContext } = require('./services/accessControlService');
+const { writeDeployMarker } = require('./services/adminOpsService');
 
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
 
@@ -30,6 +31,7 @@ const rest = new REST({ version: '10', timeout: Number(process.env.DISCORD_REST_
   try {
     console.log(`Started refreshing ${commands.length} application command(s).`);
     await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
+    writeDeployMarker({ commandCount: commands.length, source: 'deploy-commands.js' });
     console.log('Slash/context commands deployed successfully.');
   } catch (error) {
     console.error(error);

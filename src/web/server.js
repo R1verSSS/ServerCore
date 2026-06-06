@@ -31,6 +31,7 @@ const { buildModuleStatus, setModuleEnabled } = require('../services/moduleServi
 const { listChannelRules, setChannelRule } = require('../services/channelRulesService');
 const { buildProductionReport } = require('../services/productionCheckService');
 const { getEconomyHistory, getTicketTemplates, getPanelRegistry, registerPanelPublish, getRoleUsage, getDailyDeal } = require('../services/managementUxService');
+const { buildUpdateReport, getChangelog, readErrorLog, clearErrorLog, getAdminOperations, runScenario } = require('../services/adminOpsService');
 
 const started = { value: false };
 const loginAttempts = new Map();
@@ -100,11 +101,11 @@ function getStats(client) {
 }
 function layout(title, body, message = '', warning = '') {
   const navGroups = [
-    { title: 'Главное', icon: '🏠', links: [['/', 'Дашборд'], ['/quick-actions', 'Быстрые действия'], ['/modules', 'Модули'], ['/panels', 'Панели Discord'], ['/project', 'Проект'], ['/health', 'Health'], ['/network', 'Сеть'], ['/docs', 'Документация']] },
+    { title: 'Главное', icon: '🏠', links: [['/', 'Дашборд'], ['/quick-actions', 'Быстрые действия'], ['/update-center', 'Обновления'], ['/changelog', 'Changelog'], ['/modules', 'Модули'], ['/panels', 'Панели Discord'], ['/project', 'Проект'], ['/health', 'Health'], ['/network', 'Сеть'], ['/docs', 'Документация']] },
     { title: 'Пользователи', icon: '👥', links: [['/users', 'Участники'], ['/profiles', 'Профили'], ['/economy', 'Экономика'], ['/economy-history', 'История экономики'], ['/shop-admin', 'Магазин'], ['/shop-deals', 'Скидки']] },
     { title: 'Активности', icon: '🎮', links: [['/onboarding', 'Онбординг'], ['/events', 'Ивенты'], ['/voice', 'Voice'], ['/suggestions-panel', 'Предложения'], ['/notifications', 'Уведомления'], ['/clans', 'Кланы'], ['/applications', 'Заявки'], ['/tournaments', 'Турниры'], ['/season', 'Сезон']] },
-    { title: 'Модерация', icon: '🛡️', links: [['/tickets', 'Тикеты'], ['/ticket-templates', 'Шаблоны тикетов'], ['/moderation', 'Модерация'], ['/channel-rules', 'Правила каналов'], ['/access', 'Доступ и роли'], ['/automod', 'AutoMod'], ['/logs', 'Логи'], ['/audit', 'Audit']] },
-    { title: 'Система', icon: '⚙️', links: [['/settings', 'Настройки'], ['/panel-center', 'Центр панелей'], ['/roles', 'Роли'], ['/maintenance', 'Обслуживание'], ['/production', 'Production-check'], ['/hosting', 'Хостинг'], ['/backups', 'Бэкапы'], ['/integrations', 'Интеграции'], ['/commands', 'Команды']] },
+    { title: 'Модерация', icon: '🛡️', links: [['/tickets', 'Тикеты'], ['/ticket-templates', 'Шаблоны тикетов'], ['/moderation', 'Модерация'], ['/errors', 'Ошибки'], ['/channel-rules', 'Правила каналов'], ['/access', 'Доступ и роли'], ['/automod', 'AutoMod'], ['/logs', 'Логи'], ['/audit', 'Audit']] },
+    { title: 'Система', icon: '⚙️', links: [['/settings', 'Настройки'], ['/scenarios', 'Сценарии'], ['/panel-center', 'Центр панелей'], ['/roles', 'Роли'], ['/maintenance', 'Обслуживание'], ['/production', 'Production-check'], ['/hosting', 'Хостинг'], ['/backups', 'Бэкапы'], ['/integrations', 'Интеграции'], ['/commands', 'Команды']] },
   ];
   const nav = navGroups.map(group => `<details class="nav-group" open><summary>${group.icon} ${group.title}</summary>${group.links.map(([href, label]) => `<a href="${href}">${label}</a>`).join('')}</details>`).join('');
   return `<!doctype html>
@@ -180,7 +181,7 @@ function commandsPage() {
     ['Сообщество', ['/rep','/reputation','/achievements','/badges','/clan']],
     ['Поддержка и модерация', ['/ticket','/close','/warn','/warnremove','/warnings','/cases','/case','/note','/appeal','/clear','/mute','/unmute','/kick','/ban','/modpanel']],
     ['Игры и активность', ['/game','/gamepanel','/quest','/event','/tournament','/season','/lfg','/voice']],
-    ['Администрирование', ['/settings','/automod','/apply','/applications','/application','/integration','/hosting-check','/maintenance','/backup','/export']]
+    ['Администрирование', ['/settings','/automod','/apply','/applications','/application','/integration','/hosting-check','/update-check','/production-check','/maintenance','/backup','/export']]
   ];
   return groups.map(([name, cmds]) => `<div class="card"><h3>${escapeHtml(name)}</h3>${cmds.map(c => `<span class="pill">${c}</span>`).join('')}</div>`).join('');
 }
@@ -299,6 +300,31 @@ function startWebPanel(client) {
     const rows = report.checks.map(c => `<tr><td>${c.ok ? '<span class="status-ok">✅ OK</span>' : '<span class="status-warn">⚠️ Проверить</span>'}</td><td>${escapeHtml(c.label)}</td><td>${escapeHtml(c.hint || '')}</td></tr>`).join('');
     const body = `<div class="grid"><div class="card"><h2>🚀 Production-check</h2><div class="stat">${report.okCount}/${report.total}</div><p class="muted">Финальная проверка после обновлений и redeploy.</p></div><div class="card"><h2>💾 База</h2><p><b>Драйвер:</b> ${escapeHtml(report.storage?.driver || 'unknown')}</p><p><b>Backup:</b> ${Number(report.backups || 0)}</p></div><div class="card"><h2>Команда Discord</h2><p class="code">/production-check</p></div></div><div class="card section wide"><h2>Проверки</h2><table><tr><th>Статус</th><th>Пункт</th><th>Подсказка</th></tr>${rows}</table></div>`;
     res.send(layout('Production-check', body, req.query.message));
+  });
+
+  app.get('/update-center', (req, res) => {
+    const report = buildUpdateReport();
+    const rows = report.checks.map(c => `<tr><td>${c.ok ? '<span class="status-ok">✅ OK</span>' : '<span class="status-warn">⚠️ Проверить</span>'}</td><td>${escapeHtml(c.label)}</td><td>${escapeHtml(c.hint || '')}</td></tr>`).join('');
+    const ops = getAdminOperations(8).map(op => `<tr><td>${escapeHtml(op.createdAt)}</td><td>${escapeHtml(op.action)}</td><td><div class="code small">${escapeHtml(JSON.stringify(op.details || {}, null, 2)).slice(0, 600)}</div></td></tr>`).join('');
+    const body = `<div class="grid"><div class="card"><h2>🔄 Update-center</h2><div class="stat">${report.okCount}/${report.total}</div><p class="muted">Проверка состояния после обновлений, redeploy и регистрации slash-команд.</p></div><div class="card"><h2>Версия</h2><div class="stat">${escapeHtml(report.package.version || 'unknown')}</div><p class="muted">Последний deploy: ${escapeHtml(report.marker?.deployedAt || 'не найден')}</p></div><div class="card"><h2>Backup</h2><p><b>Последний:</b> ${escapeHtml(report.latestBackup?.name || 'нет')}</p><p><b>Всего:</b> ${report.backups.length}</p><form method="post" action="/actions/backup-create"><input name="name" value="before-update-${Date.now()}"/><button>Создать backup перед обновлением</button></form></div></div><div class="card section wide"><h2>Проверки</h2><table><tr><th>Статус</th><th>Пункт</th><th>Подсказка</th></tr>${rows}</table></div><div class="card section wide"><h2>Последние админ-сценарии</h2><table><tr><th>Дата</th><th>Действие</th><th>Детали</th></tr>${ops || '<tr><td colspan="3">Пока нет операций.</td></tr>'}</table></div>`;
+    res.send(layout('Update-center', body, req.query.message, req.query.warning));
+  });
+
+  app.get('/changelog', (req, res) => {
+    const items = getChangelog().map(entry => `<div class="card section"><h2>v${escapeHtml(entry.version)} — ${escapeHtml(entry.title)}</h2><ul>${entry.items.map(i => `<li>${escapeHtml(i)}</li>`).join('')}</ul></div>`).join('');
+    res.send(layout('Changelog', `<div class="card"><h2>📌 Журнал изменений</h2><p class="muted">Краткая история последних стабильных доработок ServerCore.</p></div>${items}`, req.query.message));
+  });
+
+  app.get('/errors', (req, res) => {
+    const lines = readErrorLog(80);
+    const rows = lines.map(line => `<tr><td><div class="code small">${escapeHtml(line).slice(0, 1500)}</div></td></tr>`).join('');
+    const body = `<div class="grid-2"><div class="card"><h2>🐞 Ошибки</h2><p class="muted">Последние строки из logs/error.log. Полезно после redeploy, кнопок, команд и веб-действий.</p></div><div class="card"><h2>Действия</h2><form method="post" action="/actions/errors-clear" onsubmit="return confirm('Очистить error.log?')"><button class="danger">Очистить ошибки</button></form></div></div><div class="card section wide"><table><tr><th>Строка лога</th></tr>${rows || '<tr><td>Ошибок пока нет.</td></tr>'}</table></div>`;
+    res.send(layout('Ошибки', body, req.query.message));
+  });
+
+  app.get('/scenarios', (req, res) => {
+    const body = `<div class="card"><h2>🧭 Сценарии администратора</h2><p class="muted">Готовые безопасные действия для обслуживания сервера. Часть сценариев создает backup, часть помогает проверить состояние проекта.</p></div><div class="grid-2 section"><div class="card"><h3>Перед обновлением</h3><p class="muted">Создает backup с меткой predeploy.</p><form method="post" action="/actions/scenario"><input type="hidden" name="type" value="predeploy-backup"/><button>Создать predeploy backup</button></form></div><div class="card"><h3>Стабильная точка</h3><p class="muted">Создает backup стабильной версии после успешной проверки.</p><form method="post" action="/actions/scenario"><input type="hidden" name="type" value="stable-backup"/><button>Создать stable backup</button></form></div><div class="card"><h3>После обновления</h3><p class="muted">Проверяет update-center и подсказывает, нужно ли npm run deploy.</p><form method="post" action="/actions/scenario"><input type="hidden" name="type" value="post-update-check"/><button>Запустить post-update check</button></form></div><div class="card"><h3>Панели Discord</h3><p class="muted">Напоминание проверить /panel-center и переопубликовать панели.</p><form method="post" action="/actions/scenario"><input type="hidden" name="type" value="mark-panels-check"/><button>Отметить проверку панелей</button></form></div></div>`;
+    res.send(layout('Сценарии', body, req.query.message, req.query.warning));
   });
 
   app.get('/access', (req, res) => {
@@ -867,6 +893,18 @@ npm run safe:update</p></div><div class="card"><h2>Важно для SQLite</h2>
     res.redirect(redirect('/maintenance', enabled ? 'Режим обслуживания включен.' : 'Режим обслуживания выключен.'));
   });
 
+  app.post('/actions/errors-clear', (req, res) => {
+    clearErrorLog();
+    addAudit('errors_clear_web', { username: 'web-panel', id: 'web' }, { source: 'web' });
+    res.redirect(redirect('/errors', 'Журнал ошибок очищен.'));
+  });
+
+  app.post('/actions/scenario', (req, res) => {
+    const result = runScenario(String(req.body.type || ''));
+    addAudit('admin_scenario_web', { username: 'web-panel', id: 'web' }, { type: req.body.type, result });
+    res.redirect(result.ok ? redirect('/scenarios', result.messages.join(' ')) : redirect('/scenarios', '', result.messages.join(' ')));
+  });
+
   app.get('/health', async (req, res) => {
     const guild = getGuild(client);
     const report = await buildHealthReport(client, guild).catch(error => ({
@@ -887,7 +925,7 @@ npm run safe:update</p></div><div class="card"><h2>Важно для SQLite</h2>
     cleanupOldExports();
     const backups = listBackups();
     const rows = backups.map(b => `<tr><td><code>${escapeHtml(b.name)}</code></td><td>${Math.round(b.size / 1024)} КБ</td><td>${escapeHtml(b.modifiedAt)}</td><td><div class="actions"><a class="pill" href="/download/backup/${encodeURIComponent(b.name)}">Скачать</a><form method="post" action="/actions/backup-restore" onsubmit="return confirm('Восстановить базу из этого бэкапа? Текущие данные будут заменены.')"><input type="hidden" name="name" value="${escapeHtml(b.name)}"/><button class="green">Восстановить</button></form><form method="post" action="/actions/backup-delete" onsubmit="return confirm('Удалить этот бэкап?')"><input type="hidden" name="name" value="${escapeHtml(b.name)}"/><button class="danger">Удалить</button></form></div></td></tr>`).join('');
-    const body = `<div class="grid-2"><div class="card"><h2>💾 Резервные копии</h2><p class="muted">Бэкап сохраняет текущее состояние базы в JSON. Перед восстановлением автоматически создается страховая копия.</p><form method="post" action="/actions/backup-create"><input name="name" placeholder="Название, например before-update"/><button>Создать бэкап</button></form></div><div class="card"><h2>📤 Экспорт данных</h2><p class="muted">Экспорт можно скачать как JSON или CSV. CSV доступен для пользователей, экономики и предупреждений.</p><form method="post" action="/actions/export-data"><select name="type"><option value="users">Пользователи</option><option value="economy">Экономика</option><option value="warnings">Предупреждения</option><option value="all">Все данные</option></select><select name="format"><option value="json">JSON</option><option value="csv">CSV</option></select><button>Скачать экспорт</button></form></div></div><div class="card section wide"><h2>📦 Список бэкапов</h2><table><tr><th>Файл</th><th>Размер</th><th>Изменен</th><th>Действия</th></tr>${rows || '<tr><td colspan="4">Бэкапов пока нет.</td></tr>'}</table></div>`;
+    const body = `<div class="grid-2"><div class="card"><h2>💾 Backup-центр</h2><p class="muted">Бэкап сохраняет текущее состояние базы в JSON. Перед восстановлением автоматически создается страховая копия. Используй stable/predeploy-имена перед обновлениями.</p><form method="post" action="/actions/backup-create"><input name="name" placeholder="Название, например before-update"/><button>Создать бэкап</button></form></div><div class="card"><h2>📤 Экспорт данных</h2><p class="muted">Экспорт можно скачать как JSON или CSV. CSV доступен для пользователей, экономики и предупреждений.</p><form method="post" action="/actions/export-data"><select name="type"><option value="users">Пользователи</option><option value="economy">Экономика</option><option value="warnings">Предупреждения</option><option value="all">Все данные</option></select><select name="format"><option value="json">JSON</option><option value="csv">CSV</option></select><button>Скачать экспорт</button></form></div></div><div class="card section wide"><h2>📦 Список бэкапов</h2><table><tr><th>Файл</th><th>Размер</th><th>Изменен</th><th>Действия</th></tr>${rows || '<tr><td colspan="4">Бэкапов пока нет.</td></tr>'}</table></div>`;
     res.send(layout('Бэкапы', body, req.query.message, req.query.warning));
   });
 

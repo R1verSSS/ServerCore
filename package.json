@@ -1,7 +1,7 @@
 {
   "name": "servercore-discord-bot",
-  "version": "24.1.13",
-  "description": "ServerCore Discord bot v24.1 server management UX balance history upgrade",
+  "version": "24.1.14",
+  "description": "ServerCore Discord bot v24.1 admin operations upgrade",
   "main": "http-wrapper.js",
   "scripts": {
     "start": "node http-wrapper.js",
@@ -19,7 +19,8 @@
     "production:check": "node src/tools/production-check.js",
     "start:direct": "node src/index.js",
     "hosting:start": "node http-wrapper.js",
-    "postinstall": "node -e \"const fs=require('fs'); for (const d of ['data','data/backups','data/exports','logs']) fs.mkdirSync(d,{recursive:true});\""
+    "postinstall": "node -e \"const fs=require('fs'); for (const d of ['data','data/backups','data/exports','logs']) fs.mkdirSync(d,{recursive:true});\"",
+    "update:check": "node src/tools/update-check.js"
   },
   "dependencies": {
     "discord.js": "^14.18.0",
