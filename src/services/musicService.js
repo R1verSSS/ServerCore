@@ -144,12 +144,24 @@ function isYoutubeUrl(url = '') {
   }
 }
 
+async function safeYoutubeValidate(url) {
+  try {
+    const result = play.yt_validate(url);
+    if (result && typeof result.then === 'function') {
+      return await result.catch(() => false);
+    }
+    return result || false;
+  } catch (_) {
+    return false;
+  }
+}
+
 async function resolveUrl(url, requestedBy) {
   if (!isYoutubeUrl(url)) {
     return { ok: false, reason: 'only_youtube' };
   }
 
-  const validation = await play.yt_validate(url).catch(() => false);
+  const validation = await safeYoutubeValidate(url);
   if (!validation) return { ok: false, reason: 'invalid_url' };
 
   if (validation === 'playlist') {
