@@ -126,3 +126,8 @@ npm run setup
 ## v24.1 Server Management UX Upgrade
 
 Добавлены onboarding-чеклист, шаблоны тикетов, история экономики, товар дня, центр панелей 2.0, страница ролей и улучшения управления сервером.
+
+
+## v24.1.16 User Web Panel & Auth Upgrade
+
+Добавлена пользовательская веб-панель: вход по Discord ID через `/webaccount password` или одноразовый код `/webaccount login-code`. Админская панель доступна через логин `Admin` и `WEB_PASSWORD`.

@@ -32,6 +32,7 @@ const { listChannelRules, setChannelRule } = require('../services/channelRulesSe
 const { updateTicketRecord, priorityLabel } = require('../services/ticketService');
 const { buildProductionReport } = require('../services/productionCheckService');
 const { getEconomyHistory, getTicketTemplates, getPanelRegistry, registerPanelPublish, getRoleUsage, getDailyDeal, getPurchaseHistory, recordWebLogin, getWebLoginLog, getAutomodRules, saveAutomodRules } = require('../services/managementUxService');
+const { loginUser, validateSession, listUserWebLog } = require('../services/webAccountService');
 
 const started = { value: false };
 const loginAttempts = new Map();
@@ -65,8 +66,24 @@ function isAuthed(req, config) {
   const cookies = parseCookies(req.headers.cookie || '');
   return cookies.servercore_session === config.token;
 }
-function requireAuth(config) {
-  return (req, res, next) => isAuthed(req, config) ? next() : res.redirect('/login');
+function getWebAuth(req, config) {
+  const cookies = parseCookies(req.headers.cookie || '');
+  if (cookies.servercore_session === config.token) return { type: 'admin', label: 'Admin' };
+  const userSession = validateSession(cookies.servercore_user_session || '');
+  if (userSession) return { type: 'user', label: userSession.username || userSession.userId, userId: userSession.userId, account: userSession.account };
+  return null;
+}
+function isUserPanelRoute(pathname = '') {
+  return pathname === '/user-panel' || pathname.startsWith('/my-') || pathname === '/account' || pathname === '/logout';
+}
+function requireWebAuth(config) {
+  return (req, res, next) => {
+    const auth = getWebAuth(req, config);
+    if (!auth) return res.redirect('/login');
+    req.webAuth = auth;
+    if (auth.type === 'user' && !isUserPanelRoute(req.path)) return res.redirect('/user-panel');
+    return next();
+  };
 }
 function getGuild(client) {
   return client.guilds.cache.get(process.env.GUILD_ID) || client.guilds.cache.first();
@@ -117,8 +134,23 @@ document.addEventListener('click',function(e){var el=e.target;if(el && el.matche
 </script></body></html>`;
 }
 function loginPage(error = '') {
-  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"/><title>ServerCore Login</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0f1117;color:#f5f6fa;font-family:Arial,sans-serif}.box{width:min(420px,92vw);background:#171a23;border:1px solid #2b3040;border-radius:16px;padding:24px}input,button{width:100%;padding:12px;border-radius:10px;border:1px solid #2b3040;background:#10131b;color:#fff;margin-top:10px}button{background:#5865f2;border:0;font-weight:700}.err{color:#ff8588}</style></head><body><form class="box" method="post" action="/login"><h1>⚙️ ServerCore</h1><p>Введи пароль веб-панели.</p>${error ? `<p class="err">${escapeHtml(error)}</p>` : ''}<input type="password" name="password" placeholder="WEB_PASSWORD" autofocus/><button>Войти</button><p style="color:#aeb4c2;font-size:13px">Пароль задается в .env: WEB_PASSWORD=...<br/>Защита: лимит попыток входа и cookie-сессия на 8 часов.</p></form></body></html>`;
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"/><title>ServerCore Login</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0f1117;color:#f5f6fa;font-family:Arial,sans-serif}.box{width:min(540px,94vw);background:#171a23;border:1px solid #2b3040;border-radius:16px;padding:24px}.tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}.tab{border:1px solid #2b3040;background:#10131b;border-radius:12px;padding:12px}.tab input{width:auto;margin-right:8px}input,button{width:100%;padding:12px;border-radius:10px;border:1px solid #2b3040;background:#10131b;color:#fff;margin-top:10px}button{background:#5865f2;border:0;font-weight:700}.err{color:#ff8588}.muted{color:#aeb4c2;font-size:13px;line-height:1.4}.hint{background:#10131b;border-left:3px solid #5865f2;padding:10px;border-radius:10px;margin:12px 0}</style></head><body><form class="box" method="post" action="/login"><h1>⚙️ ServerCore</h1><p class="muted">Выбери тип входа. Администратор попадает в полную панель, пользователь — только в личный кабинет.</p>${error ? `<p class="err">${escapeHtml(error)}</p>` : ''}<div class="tabs"><label class="tab"><input type="radio" name="mode" value="admin" checked/>Администратор</label><label class="tab"><input type="radio" name="mode" value="user"/>Пользователь</label></div><input name="login" placeholder="Admin или Discord ID пользователя" value="Admin"/><input type="password" name="password" placeholder="Пароль или одноразовый код" autofocus/><button>Войти</button><div class="hint muted"><b>Админ:</b> логин Admin + WEB_PASSWORD из .env.<br/><b>Пользователь:</b> Discord ID + пароль из /webaccount password или код из /webaccount login-code.</div></form></body></html>`;
 }
+
+function userLayout(title, body, auth, message = '', warning = '') {
+  const nav = [
+    ['/user-panel', '🏠 Личный кабинет'],
+    ['/my-profile', '👤 Профиль'],
+    ['/my-balance', '💰 Баланс'],
+    ['/my-inventory', '🎒 Инвентарь'],
+    ['/my-tickets', '🎫 Тикеты'],
+    ['/my-events', '📅 Активности'],
+    ['/my-purchases', '🧾 Покупки'],
+    ['/account', '⚙️ Аккаунт'],
+  ].map(([href,label]) => `<a href="${href}">${label}</a>`).join('');
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${escapeHtml(title)}</title><style>:root{color-scheme:dark;--bg:#0f1117;--card:#171a23;--line:#2b3040;--text:#f5f6fa;--muted:#aeb4c2;--accent:#5865f2}*{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#0f1117,#111827);color:var(--text);font-family:Inter,Arial,sans-serif}.app{display:grid;grid-template-columns:260px 1fr;min-height:100vh}.side{background:#0b0e15;border-right:1px solid var(--line);padding:18px;position:sticky;top:0;height:100vh}.brand{font-size:22px;font-weight:800;margin-bottom:10px}.user{color:var(--muted);font-size:13px;margin-bottom:18px}.side a{display:block;color:var(--muted);text-decoration:none;padding:10px 12px;border:1px solid var(--line);border-radius:12px;margin:8px 0;background:#10131b}.side a:hover{color:#fff;background:rgba(88,101,242,.12)}.logout{color:#ffb3b5!important}.main{min-width:0}.top{position:sticky;top:0;background:rgba(17,19,27,.92);border-bottom:1px solid var(--line);padding:18px 24px}.top h1{margin:0;font-size:24px}.content{max-width:1200px;margin:0 auto;padding:24px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}.card{background:rgba(23,26,35,.94);border:1px solid var(--line);border-radius:16px;padding:18px}.stat{font-size:32px;font-weight:800}.muted{color:var(--muted);line-height:1.45}.ok{background:rgba(87,242,135,.12);border:1px solid rgba(87,242,135,.35);padding:12px;border-radius:12px;margin-bottom:16px}.warn{background:rgba(237,66,69,.12);border:1px solid rgba(237,66,69,.35);padding:12px;border-radius:12px;margin-bottom:16px}table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--muted)}.pill{display:inline-block;border:1px solid var(--line);padding:4px 8px;border-radius:999px;color:var(--muted);font-size:12px;margin:2px}.section{margin-top:16px}.code{font-family:Consolas,monospace;background:#0b0d12;border:1px solid var(--line);border-radius:10px;padding:10px;white-space:pre-wrap}button,input{border-radius:10px;border:1px solid var(--line);padding:10px 12px;background:#10131b;color:#fff;width:100%;margin-top:8px}button{background:var(--accent);border:0;font-weight:700}@media(max-width:820px){.app{display:block}.side{position:static;height:auto}.content{padding:16px}}</style></head><body><div class="app"><aside class="side"><div class="brand">🌐 ServerCore User</div><div class="user">${escapeHtml(auth?.label || auth?.userId || 'user')}<br/><span class="pill">${escapeHtml(auth?.userId || '')}</span></div>${nav}<a class="logout" href="/logout">Выйти</a></aside><div class="main"><div class="top"><h1>${escapeHtml(title)}</h1></div><main class="content">${message ? `<div class="ok">${escapeHtml(message)}</div>` : ''}${warning ? `<div class="warn">${escapeHtml(warning)}</div>` : ''}${body}</main></div></div></body></html>`;
+}
+
 function renderUsersTable(users, withActions = false) {
   const rows = users.map((user, index) => `<tr><td>${index + 1}</td><td><b>${escapeHtml(user.username)}</b><div class="small muted">${escapeHtml(user.discordId)}</div></td><td>${user.level || 1}</td><td>${user.xp || 0}</td><td>${user.coins || 0}</td><td>${user.reputation || 0}</td><td>${user.messages || 0}</td>${withActions ? `<td class="nowrap"><a class="pill" href="/user/${encodeURIComponent(user.discordId)}">Открыть</a></td>` : ''}</tr>`).join('');
   return `<table><tr><th>#</th><th>Ник</th><th>Уровень</th><th>XP</th><th>Монеты</th><th>Репутация</th><th>Сообщения</th>${withActions ? '<th>Действие</th>' : ''}</tr>${rows || `<tr><td colspan="${withActions ? 8 : 7}">Данных пока нет.</td></tr>`}</table>`;
@@ -218,6 +250,21 @@ function renderAutomodLogs() {
   return `<table><tr><th>ID</th><th>Участник</th><th>Канал</th><th>Причина</th><th>Текст</th><th>Дата</th></tr>${rows || '<tr><td colspan="6">Срабатываний пока нет.</td></tr>'}</table>`;
 }
 
+
+function renderSimpleEconomyTable(rows = []) {
+  const html = (rows || []).map(row => {
+    const sign = Number(row.amount || 0) >= 0 ? '+' : '';
+    const meta = row.meta?.itemName || row.meta?.itemId || '';
+    return `<tr><td>${escapeHtml(row.createdAt || '')}</td><td>${escapeHtml(row.type || '')}</td><td>${sign}${Number(row.amount || 0)}</td><td>${escapeHtml(meta)}</td></tr>`;
+  }).join('');
+  return `<table><tr><th>Дата</th><th>Тип</th><th>Сумма</th><th>Детали</th></tr>${html || '<tr><td colspan="4">Операций пока нет.</td></tr>'}</table>`;
+}
+
+function renderSimplePurchasesTable(rows = []) {
+  const html = (rows || []).map(row => `<tr><td>${escapeHtml(row.createdAt || '')}</td><td>${escapeHtml(row.meta?.itemName || row.meta?.itemId || '-')}</td><td>${Number(row.amount || 0)}</td><td>${row.meta?.dailyDeal ? '🔥 товар дня' : '—'}</td></tr>`).join('');
+  return `<table><tr><th>Дата</th><th>Товар</th><th>Сумма</th><th>Скидка</th></tr>${html || '<tr><td colspan="4">Покупок пока нет.</td></tr>'}</table>`;
+}
+
 function startWebPanel(client) {
   const config = getPanelConfig();
   if (!config.enabled || started.value) return;
@@ -229,27 +276,112 @@ function startWebPanel(client) {
   app.get('/login', (req, res) => res.send(loginPage()));
   app.post('/login', (req, res) => {
     const ip = req.ip || req.socket.remoteAddress || 'local';
+    const userAgent = req.headers['user-agent'] || '';
     const rec = loginAttempts.get(ip) || { count: 0, lockedUntil: 0 };
     if (rec.lockedUntil && Date.now() < rec.lockedUntil) {
       const left = Math.ceil((rec.lockedUntil - Date.now()) / 60000);
       return res.status(429).send(loginPage(`Слишком много попыток. Повтори через ${left} мин.`));
     }
-    if (req.body.password !== config.password) {
+
+    const mode = String(req.body.mode || 'admin');
+    const login = String(req.body.login || '').trim();
+    const password = String(req.body.password || '');
+
+    if (mode === 'user') {
+      const result = loginUser(login, password, { ip, userAgent });
+      if (!result.ok) {
+        rec.count += 1;
+        if (rec.count >= PANEL_LOGIN_LIMIT) { rec.lockedUntil = Date.now() + PANEL_LOCK_MINUTES * 60000; rec.count = 0; }
+        loginAttempts.set(ip, rec);
+        addAudit('web_user_login_failed', { name: ip }, { userId: login, reason: result.reason, source: 'web' });
+        return res.status(401).send(loginPage('Неверный Discord ID, пароль или одноразовый код.'));
+      }
+      loginAttempts.delete(ip);
+      addAudit('web_user_login_success', { name: result.account?.username || login, id: result.account?.userId || login }, { source: 'web' });
+      res.setHeader('Set-Cookie', `servercore_user_session=${encodeURIComponent(result.session)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400`);
+      return res.redirect('/user-panel');
+    }
+
+    const adminLoginOk = !login || login.toLowerCase() === 'admin';
+    if (!adminLoginOk || password !== config.password) {
       rec.count += 1;
       if (rec.count >= PANEL_LOGIN_LIMIT) { rec.lockedUntil = Date.now() + PANEL_LOCK_MINUTES * 60000; rec.count = 0; }
       loginAttempts.set(ip, rec);
       addAudit('web_login_failed', { name: ip }, { count: rec.count, source: 'web' });
-      recordWebLogin({ ip, ok: false, reason: 'bad_password', userAgent: req.headers['user-agent'] || '' });
-      return res.status(401).send(loginPage('Неверный пароль'));
+      recordWebLogin({ ip, ok: false, reason: 'bad_admin_password', userAgent });
+      return res.status(401).send(loginPage('Неверный логин или пароль администратора'));
     }
     loginAttempts.delete(ip);
     addAudit('web_login_success', { name: ip }, { source: 'web' });
-    recordWebLogin({ ip, ok: true, reason: 'success', userAgent: req.headers['user-agent'] || '' });
+    recordWebLogin({ ip, ok: true, reason: 'admin_success', userAgent });
     res.setHeader('Set-Cookie', `servercore_session=${encodeURIComponent(config.token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800`);
     res.redirect('/');
   });
-  app.get('/logout', (req, res) => { res.setHeader('Set-Cookie', 'servercore_session=; Max-Age=0; Path=/'); res.redirect('/login'); });
-  app.use(requireAuth(config));
+  app.get('/logout', (req, res) => {
+    res.setHeader('Set-Cookie', ['servercore_session=; Max-Age=0; Path=/', 'servercore_user_session=; Max-Age=0; Path=/']);
+    res.redirect('/login');
+  });
+  app.use(requireWebAuth(config));
+
+  app.get('/user-panel', (req, res) => {
+    const db = readDatabase();
+    const user = db.users?.[req.webAuth.userId] || { discordId: req.webAuth.userId, username: req.webAuth.label, level: 1, xp: 0, coins: 0, reputation: 0 };
+    const tickets = Object.values(db.tickets || {}).filter(t => t.userId === req.webAuth.userId || t.authorId === req.webAuth.userId);
+    const purchases = getPurchaseHistory(req.webAuth.userId, 5);
+    const economy = getEconomyHistory(req.webAuth.userId, 5);
+    const body = `<div class="grid"><div class="card"><div class="muted">Баланс</div><div class="stat">${Number(user.coins || 0)}</div><p class="muted">монет</p></div><div class="card"><div class="muted">Уровень</div><div class="stat">${Number(user.level || 1)}</div><p class="muted">XP: ${Number(user.xp || 0)}</p></div><div class="card"><div class="muted">Репутация</div><div class="stat">${Number(user.reputation || 0)}</div></div><div class="card"><div class="muted">Мои тикеты</div><div class="stat">${tickets.length}</div></div></div><div class="grid section"><div class="card"><h2>💰 Последние операции</h2>${renderSimpleEconomyTable(economy)}</div><div class="card"><h2>🧾 Последние покупки</h2>${renderSimplePurchasesTable(purchases)}</div></div>`;
+    res.send(userLayout('Личный кабинет', body, req.webAuth, req.query.message));
+  });
+
+  app.get('/my-profile', (req, res) => {
+    const db = readDatabase();
+    const user = db.users?.[req.webAuth.userId] || { discordId: req.webAuth.userId, username: req.webAuth.label };
+    const body = `<div class="card"><h2>👤 Мой профиль</h2><table><tr><th>Параметр</th><th>Значение</th></tr><tr><td>Discord ID</td><td><code>${escapeHtml(req.webAuth.userId)}</code></td></tr><tr><td>Ник</td><td>${escapeHtml(user.username || req.webAuth.label)}</td></tr><tr><td>Уровень</td><td>${Number(user.level || 1)}</td></tr><tr><td>XP</td><td>${Number(user.xp || 0)}</td></tr><tr><td>Сообщения</td><td>${Number(user.messages || 0)}</td></tr><tr><td>Репутация</td><td>${Number(user.reputation || 0)}</td></tr><tr><td>Бейджи</td><td>${escapeHtml((user.badges || []).join(' ') || '—')}</td></tr></table></div>`;
+    res.send(userLayout('Мой профиль', body, req.webAuth));
+  });
+
+  app.get('/my-balance', (req, res) => {
+    const db = readDatabase();
+    const user = db.users?.[req.webAuth.userId] || { coins: 0 };
+    const rows = getEconomyHistory(req.webAuth.userId, 50);
+    const body = `<div class="card"><h2>💰 Баланс</h2><div class="stat">${Number(user.coins || 0)}</div><p class="muted">Последние операции по твоему аккаунту.</p>${renderSimpleEconomyTable(rows)}</div>`;
+    res.send(userLayout('Мой баланс', body, req.webAuth));
+  });
+
+  app.get('/my-inventory', (req, res) => {
+    const db = readDatabase();
+    const inv = db.inventories?.[req.webAuth.userId] || {};
+    const entries = Object.entries(inv.items || inv || {}).filter(([k]) => k !== 'userId' && k !== 'updatedAt');
+    const rows = entries.map(([id, value]) => `<tr><td>${escapeHtml(id)}</td><td>${typeof value === 'object' ? escapeHtml(JSON.stringify(value)) : escapeHtml(value)}</td></tr>`).join('');
+    const body = `<div class="card"><h2>🎒 Инвентарь</h2><table><tr><th>Предмет</th><th>Количество/данные</th></tr>${rows || '<tr><td colspan="2">Инвентарь пока пуст.</td></tr>'}</table></div>`;
+    res.send(userLayout('Мой инвентарь', body, req.webAuth));
+  });
+
+  app.get('/my-tickets', (req, res) => {
+    const db = readDatabase();
+    const tickets = Object.values(db.tickets || {}).filter(t => t.userId === req.webAuth.userId || t.authorId === req.webAuth.userId).sort((a,b)=>Number(b.id)-Number(a.id));
+    const rows = tickets.map(t => `<tr><td>#${t.id}</td><td>${escapeHtml(t.status || 'open')}</td><td>${escapeHtml(t.priority || 'normal')}</td><td>${escapeHtml(t.reason || '—')}</td><td>${escapeHtml(t.createdAt || '')}</td></tr>`).join('');
+    res.send(userLayout('Мои тикеты', `<div class="card"><h2>🎫 Мои тикеты</h2><table><tr><th>ID</th><th>Статус</th><th>Приоритет</th><th>Причина</th><th>Дата</th></tr>${rows || '<tr><td colspan="5">Тикетов пока нет.</td></tr>'}</table></div>`, req.webAuth));
+  });
+
+  app.get('/my-events', (req, res) => {
+    const db = readDatabase();
+    const events = Object.values(db.events || {}).filter(e => Array.isArray(e.participants) && e.participants.includes(req.webAuth.userId));
+    const tournaments = Object.values(db.tournaments || {}).filter(t => Array.isArray(t.participants) && t.participants.includes(req.webAuth.userId));
+    const rows = [...events.map(e => ['Ивент', e.id, e.title, e.status, e.date]), ...tournaments.map(t => ['Турнир', t.id, t.title, t.status, ''])].map(r => `<tr><td>${escapeHtml(r[0])}</td><td>#${escapeHtml(r[1])}</td><td>${escapeHtml(r[2])}</td><td>${escapeHtml(r[3] || '')}</td><td>${escapeHtml(r[4] || '')}</td></tr>`).join('');
+    res.send(userLayout('Мои активности', `<div class="card"><h2>📅 Мои активности</h2><table><tr><th>Тип</th><th>ID</th><th>Название</th><th>Статус</th><th>Дата</th></tr>${rows || '<tr><td colspan="5">Ты пока не записан на активности.</td></tr>'}</table></div>`, req.webAuth));
+  });
+
+  app.get('/my-purchases', (req, res) => {
+    const rows = getPurchaseHistory(req.webAuth.userId, 100);
+    res.send(userLayout('Мои покупки', `<div class="card"><h2>🧾 Мои покупки</h2>${renderSimplePurchasesTable(rows)}</div>`, req.webAuth));
+  });
+
+  app.get('/account', (req, res) => {
+    const logs = listUserWebLog(req.webAuth.userId, 20).map(l => `<tr><td>${escapeHtml(l.createdAt)}</td><td>${l.ok ? '✅' : '❌'}</td><td>${escapeHtml(l.reason || '')}</td><td>${escapeHtml(l.ip || '')}</td></tr>`).join('');
+    const body = `<div class="card"><h2>⚙️ Веб-аккаунт</h2><p class="muted">Пароль меняется в Discord через <code>/webaccount password</code>. Для одноразового входа используй <code>/webaccount login-code</code>.</p><table><tr><td>Discord ID</td><td><code>${escapeHtml(req.webAuth.userId)}</code></td></tr><tr><td>Имя</td><td>${escapeHtml(req.webAuth.label)}</td></tr></table></div><div class="card section"><h2>🔐 Последние входы</h2><table><tr><th>Дата</th><th>OK</th><th>Причина</th><th>IP</th></tr>${logs || '<tr><td colspan="4">Записей пока нет.</td></tr>'}</table></div>`;
+    res.send(userLayout('Аккаунт', body, req.webAuth));
+  });
 
   app.get('/', (req, res) => {
     const stats = getStats(client); const guild = stats.guild; const storage = getStorageInfo();

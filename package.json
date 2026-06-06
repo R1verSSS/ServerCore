@@ -1,7 +1,7 @@
 {
   "name": "servercore-discord-bot",
-  "version": "24.1.15",
-  "description": "ServerCore Discord bot v24.1 server management UX community and moderation UX upgrade",
+  "version": "24.1.16",
+  "description": "ServerCore Discord bot v24.1 user web panel and auth upgrade",
   "main": "http-wrapper.js",
   "scripts": {
     "start": "node http-wrapper.js",

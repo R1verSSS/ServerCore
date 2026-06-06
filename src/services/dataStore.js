@@ -74,6 +74,8 @@ const EMPTY_DB = {
   webLoginLog: [],
   automodRules: {},
   productionChecks: [],
+  webAccounts: {},
+  webUserLoginLog: [],
   tempVoiceSettings: {
     createChannelName: '➕・создать-комнату',
     roomNameTemplate: '🔊・комната {username}',
@@ -136,6 +138,8 @@ function mergeDefaults(db) {
   if (!normalized.automodRules || typeof normalized.automodRules !== 'object') normalized.automodRules = {};
   if (!Array.isArray(normalized.productionChecks)) normalized.productionChecks = [];
   if (!normalized.tempVoiceRooms || typeof normalized.tempVoiceRooms !== 'object') normalized.tempVoiceRooms = {};
+  if (!normalized.webAccounts || typeof normalized.webAccounts !== 'object') normalized.webAccounts = {};
+  if (!Array.isArray(normalized.webUserLoginLog)) normalized.webUserLoginLog = [];
   if (!normalized.tempVoiceSettings || typeof normalized.tempVoiceSettings !== 'object') {
     normalized.tempVoiceSettings = {
       createChannelName: '➕・создать-комнату',
