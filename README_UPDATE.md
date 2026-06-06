@@ -78,3 +78,11 @@ APPLICATIONS_CHANNEL_ID=1512791242000564229
 - Команда `npm run db:migrate` переносит текущее состояние из `data/database.json` в SQLite.
 - Добавлена поддержка `APPLICATIONS_CHANNEL_ID=1512791242000564229` для Forum-канала заявок.
 - Self-check теперь принимает Forum-канал заявок как корректный канал.
+
+## v24.1.29 — Bothost pnpm hoisted dependency fix
+
+- Добавлен `.npmrc` для hoisted-установки зависимостей через pnpm на Bothost.
+- Dockerfile теперь принудительно использует `node-linker=hoisted`.
+- Проверка зависимостей в Dockerfile усилена: проверяется наличие `package.json`, а не только пустой папки.
+- Исправляет runtime-ошибку `Cannot find module 'dotenv'` при запуске `npm run db:migrate`.
+- Реальный `.env` исключён из архива; используйте переменные окружения Bothost.

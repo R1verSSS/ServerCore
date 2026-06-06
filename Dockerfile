@@ -14,13 +14,14 @@ COPY package*.json ./
 # Use pnpm via Corepack and verify that dependencies were really installed.
 RUN corepack enable \
     && corepack prepare pnpm@9.15.4 --activate \
-    && pnpm install --prod --no-frozen-lockfile \
-    && test -d node_modules/dotenv \
-    && test -d node_modules/discord.js \
-    && test -d node_modules/express \
-    && test -d node_modules/@discordjs/voice \
-    && test -d node_modules/play-dl \
-    && test -d node_modules/libsodium-wrappers
+    && pnpm install --prod --no-frozen-lockfile --config.node-linker=hoisted --config.shamefully-hoist=true \
+    && test -f node_modules/dotenv/package.json \
+    && test -f node_modules/discord.js/package.json \
+    && test -f node_modules/express/package.json \
+    && test -f node_modules/@discordjs/voice/package.json \
+    && test -f node_modules/play-dl/package.json \
+    && test -f node_modules/libsodium-wrappers/package.json \
+    && test -f node_modules/better-sqlite3/package.json
 
 COPY . .
 
