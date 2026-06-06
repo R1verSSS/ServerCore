@@ -12,10 +12,13 @@ const {
 } = require('discord.js');
 const { readDatabase, writeDatabase } = require('./dataStore');
 const { awardAchievement } = require('./achievementService');
+const { getSettings } = require('./settingsService');
 
 const ADMIN_ROLE_NAMES = ['👑 Owner', '🛡 Admin', '👮 Moderator'];
 const LOG_CHANNEL_NAME = '🛡・лог-модерации';
 const MOD_CATEGORY_NAME = '🛡 МОДЕРАЦИЯ';
+const DEFAULT_ACTIVE_TICKET_CATEGORY_NAME = '🎫 ПОДДЕРЖКА';
+const DEFAULT_TICKET_ARCHIVE_CHANNEL_NAME = '📁・тикеты';
 
 const TICKET_TEMPLATES = {
   support: { label: 'Поддержка', emoji: '🆘', hint: 'Опиши вопрос или проблему, с которой нужна помощь.' },
@@ -109,6 +112,99 @@ function findModerationCategory(guild) {
   return guild.channels.cache.find(channel =>
     channel.type === ChannelType.GuildCategory && channel.name === MOD_CATEGORY_NAME
   );
+}
+
+function getTicketChannelSettings() {
+  const settings = getSettings();
+  return {
+    activeCategoryId: settings.ticketActiveCategoryId || process.env.TICKET_ACTIVE_CATEGORY_ID || '',
+    activeCategoryName: settings.ticketActiveCategoryName || process.env.TICKET_ACTIVE_CATEGORY_NAME || DEFAULT_ACTIVE_TICKET_CATEGORY_NAME,
+    archiveChannelId: settings.ticketArchiveChannelId || process.env.TICKET_ARCHIVE_CHANNEL_ID || '',
+    archiveChannelName: settings.ticketArchiveChannelName || process.env.TICKET_ARCHIVE_CHANNEL_NAME || DEFAULT_TICKET_ARCHIVE_CHANNEL_NAME,
+  };
+}
+
+function findCategoryByIdOrName(guild, id, name) {
+  if (id) {
+    const channel = guild.channels.cache.get(String(id));
+    if (channel?.type === ChannelType.GuildCategory) return channel;
+  }
+
+  return guild.channels.cache.find(channel =>
+    channel.type === ChannelType.GuildCategory && channel.name === name
+  );
+}
+
+async function findOrCreateActiveTicketCategory(guild) {
+  const { activeCategoryId, activeCategoryName } = getTicketChannelSettings();
+  const existing = findCategoryByIdOrName(guild, activeCategoryId, activeCategoryName);
+  if (existing) return existing;
+
+  try {
+    return await guild.channels.create({
+      name: activeCategoryName,
+      type: ChannelType.GuildCategory,
+      reason: 'ServerCore active ticket category',
+      permissionOverwrites: [
+        { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+        {
+          id: guild.client.user.id,
+          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+        },
+      ],
+    });
+  } catch (error) {
+    console.warn('Could not create active ticket category, using moderation category fallback:', error?.message || error);
+    return findModerationCategory(guild);
+  }
+}
+
+function findTicketArchiveChannel(guild) {
+  const { archiveChannelId, archiveChannelName } = getTicketChannelSettings();
+  if (archiveChannelId) {
+    const byId = guild.channels.cache.get(String(archiveChannelId));
+    if (byId && [ChannelType.GuildText, ChannelType.GuildAnnouncement, ChannelType.GuildForum].includes(byId.type)) return byId;
+  }
+
+  return guild.channels.cache.find(channel =>
+    [ChannelType.GuildText, ChannelType.GuildAnnouncement, ChannelType.GuildForum].includes(channel.type) && channel.name === archiveChannelName
+  );
+}
+
+async function sendTicketArchive(guild, ticket, closedByTag) {
+  const archiveChannel = findTicketArchiveChannel(guild);
+  if (!archiveChannel || !ticket) return null;
+
+  const embed = new EmbedBuilder()
+    .setColor(0x2B2D31)
+    .setTitle(`📁 Закрытый тикет #${ticket.id}`)
+    .setDescription('Тикет закрыт и сохранён в архиве поддержки.')
+    .addFields(
+      { name: 'Пользователь', value: ticket.username || ticket.userId || 'неизвестно', inline: true },
+      { name: 'Закрыл', value: closedByTag || ticket.closedBy || 'неизвестно', inline: true },
+      { name: 'Статус', value: ticket.status || 'closed', inline: true },
+      { name: 'Приоритет', value: priorityLabel(ticket.priority), inline: true },
+      { name: 'Создан', value: ticket.createdAt ? `<t:${Math.floor(new Date(ticket.createdAt).getTime() / 1000)}:f>` : 'неизвестно', inline: true },
+      { name: 'Закрыт', value: ticket.closedAt ? `<t:${Math.floor(new Date(ticket.closedAt).getTime() / 1000)}:f>` : 'только что', inline: true },
+      { name: 'Причина обращения', value: String(ticket.reason || 'Не указана').slice(0, 1000), inline: false }
+    )
+    .setFooter({ text: 'ServerCore • Ticket Archive' })
+    .setTimestamp();
+
+  try {
+    if (archiveChannel.type === ChannelType.GuildForum) {
+      return await archiveChannel.threads.create({
+        name: `ticket-${ticket.id}-${normalizeChannelName(ticket.username || ticket.userId)}`.slice(0, 90),
+        message: { embeds: [embed] },
+        reason: `Ticket #${ticket.id} archived`,
+      });
+    }
+
+    return await archiveChannel.send({ embeds: [embed] });
+  } catch (error) {
+    console.error('Could not send ticket archive:', error);
+    return null;
+  }
 }
 
 function findLogChannel(guild) {
@@ -260,7 +356,7 @@ async function createTicket(interaction, reason, options = {}) {
 
   const guild = interaction.guild;
   const supportRoles = findSupportRoles(guild);
-  const category = findModerationCategory(guild);
+  const category = await findOrCreateActiveTicketCategory(guild);
   const safeUsername = normalizeChannelName(interaction.user.username);
   const channelName = `ticket-${safeUsername}`;
 
@@ -376,7 +472,8 @@ async function closeTicket(interaction, closeReason = '') {
     return { ok: false, reason: 'no_permission', ticket };
   }
 
-  const closedTicket = closeTicketRecord(interaction.channelId, interaction.user.tag);
+  const closedTicket = closeTicketRecord(interaction.channelId, interaction.user.tag, closeReason);
+  const archiveResult = await sendTicketArchive(interaction.guild, closedTicket, interaction.user.tag);
 
   const logEmbed = new EmbedBuilder()
     .setColor(0xED4245)
@@ -385,13 +482,14 @@ async function closeTicket(interaction, closeReason = '') {
       { name: 'Тикет', value: `#${closedTicket.id}`, inline: true },
       { name: 'Открыл', value: closedTicket.username, inline: true },
       { name: 'Закрыл', value: interaction.user.tag, inline: true },
-      { name: 'Причина открытия', value: closedTicket.reason || 'Не указана', inline: false }
+      { name: 'Причина открытия', value: closedTicket.reason || 'Не указана', inline: false },
+      { name: 'Архив', value: archiveResult?.url ? `[открыть запись](${archiveResult.url})` : (archiveResult ? 'запись создана' : 'архив не найден'), inline: false }
     )
     .setTimestamp();
 
   await sendTicketLog(interaction.guild, logEmbed);
 
-  return { ok: true, ticket: closedTicket };
+  return { ok: true, ticket: closedTicket, archived: Boolean(archiveResult) };
 }
 
 module.exports = {

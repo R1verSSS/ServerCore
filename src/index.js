@@ -648,7 +648,7 @@ client.on('interactionCreate', async interaction => {
         return;
       }
 
-      await safeEdit(interaction, { content: '🔒 Тикет закрыт. Канал будет удален через 5 секунд.', embeds: [], components: [] });
+      await safeEdit(interaction, { content: '🔒 Тикет закрыт. Канал будет удален через 5 секунд. Запись сохранена в архиве тикетов. Запись сохранена в архиве тикетов.', embeds: [], components: [] });
 
       setTimeout(async () => {
         try {

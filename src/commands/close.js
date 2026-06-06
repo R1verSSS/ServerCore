@@ -32,7 +32,7 @@ module.exports = {
     const embed = new EmbedBuilder()
       .setColor(0x57F287)
       .setTitle('🔒 Тикет закрыт')
-      .setDescription('Канал будет удален через 5 секунд.')
+      .setDescription('Канал будет удален через 5 секунд. Запись сохранена в архиве тикетов.')
       .setFooter({ text: 'ServerCore • Ticket System' });
 
     await safeEdit(interaction, { embeds: [embed] });
