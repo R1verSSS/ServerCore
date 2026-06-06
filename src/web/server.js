@@ -123,6 +123,18 @@ function renderUsersTable(users, withActions = false) {
   return `<table><tr><th>#</th><th>Ник</th><th>Уровень</th><th>XP</th><th>Монеты</th><th>Репутация</th><th>Сообщения</th>${withActions ? '<th>Действие</th>' : ''}</tr>${rows || `<tr><td colspan="${withActions ? 8 : 7}">Данных пока нет.</td></tr>`}</table>`;
 }
 
+function renderShopTable(items = []) {
+  const rows = (items || []).map(item => {
+    const price = Number(item.price ?? item.cost ?? 0);
+    const category = item.category || item.type || 'other';
+    const enabled = item.enabled === false ? 'Отключен' : 'Включен';
+    const role = item.roleName || item.role || item.roleId || '—';
+    const description = item.description || item.desc || '';
+    return `<tr><td><b>${escapeHtml(item.name || item.id || 'Товар')}</b><div class="small muted">${escapeHtml(item.id || '')}</div></td><td>${escapeHtml(category)}</td><td>${price}</td><td>${escapeHtml(role)}</td><td>${escapeHtml(enabled)}</td><td>${escapeHtml(description)}</td></tr>`;
+  }).join('');
+  return `<div class="table-wrap"><table><tr><th>Товар</th><th>Категория</th><th>Цена</th><th>Роль/предмет</th><th>Статус</th><th>Описание</th></tr>${rows || '<tr><td colspan="6">Товары магазина пока не найдены.</td></tr>'}</table></div>`;
+}
+
 function queryValue(req, key, fallback = '') { return String((req.query && req.query[key]) || fallback); }
 function statusBadge(status) {
   const s = String(status || 'unknown').toLowerCase();
