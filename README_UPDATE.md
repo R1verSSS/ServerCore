@@ -109,8 +109,8 @@ APPLICATIONS_CHANNEL_ID=1512791242000564229
 - Сохранён терминальный скрипт `npm run voice:diagnose`.
 - Сохранены Dockerfile build tools для Bothost: `python3`, `make`, `g++`, `pkg-config`, `libopus-dev`, `libsodium-dev`, `ffmpeg`.
 
-## v24.1.40 — Music undefined URL stream fix
+## v24.1.41 — Music play-dl stream_from_info fix
 
-- Исправлено попадание `undefined` вместо YouTube URL в `play.stream()`.
-- Добавлена нормализация URL треков для обычных видео и playlist.
-- Добавлена защита `playNext()` от пустых/некорректных URL, чтобы бот не падал.
+- `play.stream(url)` заменён на более стабильный путь `video_info(url)` → `stream_from_info(info)`.
+- Добавлена защита от пустого/некорректного URL перед открытием потока.
+- Если трек невозможно открыть, бот логирует ошибку и переходит к следующему, а не падает.

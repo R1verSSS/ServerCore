@@ -175,7 +175,7 @@ async function resolveUrl(url, requestedBy) {
     const items = videos
       .slice(0, MAX_PLAYLIST_ITEMS)
       .map(video => {
-        const itemUrl = normalizeTrackUrl(video.url, video?.url || inputUrl);
+        const itemUrl = normalizeTrackUrl(video.url, inputUrl);
         return {
           title: video.title || 'YouTube audio',
           url: itemUrl,
@@ -192,15 +192,12 @@ async function resolveUrl(url, requestedBy) {
   const info = await play.video_info(inputUrl);
   const details = info.video_details || {};
   const videoUrl = normalizeTrackUrl(details.url, inputUrl);
-  if (!videoUrl || !isYoutubeUrl(videoUrl)) {
-    return { ok: false, reason: 'invalid_url' };
-  }
 
   return {
     ok: true,
     items: [{
       title: details.title || 'YouTube audio',
-      url: videoUrl,
+      url: videoUrl || inputUrl,
       duration: details.durationRaw || '—',
       requestedBy,
     }]
@@ -295,6 +292,24 @@ async function enqueue(interaction, url) {
   return { ok: true, state: connect.state, added: validItems, playlistTitle: resolved.playlistTitle || null };
 }
 
+
+async function openYoutubeStream(track) {
+  const url = normalizeTrackUrl(track?.url);
+  if (!url || !isYoutubeUrl(url)) {
+    throw new Error(`Invalid track URL: ${url || 'empty'}`);
+  }
+
+  // play-dl на некоторых версиях нестабильно обрабатывает play.stream(url)
+  // и внутри получает input: undefined. Через video_info + stream_from_info
+  // ссылка нормализуется надежнее.
+  const info = await play.video_info(url);
+  if (typeof play.stream_from_info === 'function') {
+    return await play.stream_from_info(info);
+  }
+
+  return await play.stream(url);
+}
+
 async function playNext(state) {
   const next = state.queue.shift();
   if (!next) {
@@ -315,7 +330,7 @@ async function playNext(state) {
   state.playing = true;
 
   try {
-    const stream = await play.stream(next.url);
+    const stream = await openYoutubeStream(next);
     const resource = createAudioResource(stream.stream, {
       inputType: stream.type,
       metadata: next,
