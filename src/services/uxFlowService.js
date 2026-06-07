@@ -205,7 +205,7 @@ function buildWebUserNextHtml(userId) {
   const daily = lastDailyInfo(data.user);
   const items = getShopItemsFromDb();
   const deal = getDailyDeal(items);
-  return `<div class="card"><h2>${next.emoji} Что дальше?</h2><p class="muted"><b>${next.title}</b><br/>${next.text}</p><div class="actions"><form method="post" action="/user-actions/daily"><button ${daily.ready ? '' : 'disabled'}>🎁 ${daily.ready ? 'Получить Daily' : 'Daily позже'}</button></form><form method="post" action="/user-actions/ticket"><button>🎫 Запросить тикет</button></form><a class="pill" href="/my-tickets">Мои тикеты</a><a class="pill" href="/my-topics">Мои темы</a></div>${deal ? `<p class="hint">🛒 Товар дня: <b>${deal.itemId}</b>, скидка ${deal.discountPercent}%.</p>` : ''}</div>`;
+  return `<div class="card"><h2>${next.emoji} Что дальше?</h2><p class="muted"><b>${next.title}</b><br/>${next.text}</p><div class="actions"><form method="post" action="/user-actions/daily"><button ${daily.ready ? '' : 'disabled'}>🎁 ${daily.ready ? 'Получить Daily' : 'Daily позже'}</button></form><form method="post" action="/user-actions/ticket"><button>🎫 Запросить тикет</button></form><a class="action-link" href="/my-tickets">🎫 Мои тикеты</a><a class="action-link" href="/my-topics">🧵 Мои темы</a></div>${deal ? `<p class="hint">🛒 Товар дня: <b>${deal.itemId}</b>, скидка ${deal.discountPercent}%.</p>` : ''}</div>`;
 }
 
 module.exports = {
