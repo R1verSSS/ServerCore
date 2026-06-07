@@ -157,3 +157,7 @@ WEB_PANEL_URL=https://bot-1780694887-7211-r1vers.bothost.tech/login
 ## v24.1.21 Bot Quick Menu Restore
 
 Восстановлена панель `🤖 Быстрое меню бота` для канала `🤖・команды-бота`. Панель снова доступна в `/panels`, `/quick-actions` и публикуется через `npm run setup`.
+
+## v24.2 Channel Structure & Navigation Cleanup
+
+Структура каналов разделена на понятные пользовательские зоны: общение, бот и активности, игры, проекты, поддержку и голосовые комнаты. `npm run setup` переносит и переименовывает существующие каналы по alias-именам, не создавая дубли. Подробности: `docs/channel-structure-navigation-cleanup.md`.

@@ -15,9 +15,9 @@ const { awardAchievement } = require('./achievementService');
 const { getSettings } = require('./settingsService');
 
 const ADMIN_ROLE_NAMES = ['👑 Owner', '🛡 Admin', '👮 Moderator'];
-const LOG_CHANNEL_NAME = '🛡・лог-модерации';
+const LOG_CHANNEL_NAME = '📋・лог-модерации';
 const MOD_CATEGORY_NAME = '🛡 МОДЕРАЦИЯ';
-const DEFAULT_ACTIVE_TICKET_CATEGORY_NAME = '🎫 ПОДДЕРЖКА';
+const DEFAULT_ACTIVE_TICKET_CATEGORY_NAME = '🎫 АКТИВНЫЕ ТИКЕТЫ';
 const DEFAULT_TICKET_ARCHIVE_CHANNEL_NAME = '📁・тикеты';
 
 const TICKET_TEMPLATES = {

@@ -143,7 +143,7 @@ function buildSectionPayload(section) {
       fields: [
         { name: 'Быстрые активности', value: '`/gamepanel` — кнопки мини-игр\n`/game` — мини-игры командами\n`/quest daily` — ежедневный квест', inline: false },
         { name: 'События', value: '`/event list` — ивенты\n`/lfg list` — поиск команды\n`/tournament list` — турниры', inline: false },
-        { name: 'Совет', value: 'Панели лучше закрепить в каналах `🎲・мини-игры`, `📅・ивенты`, `🎮・поиск-команды`.', inline: false }
+        { name: 'Совет', value: 'Панели лучше закрепить в каналах `🎲・мини-игры`, `📅・ивенты`, `🎮・поиск-напарников`.', inline: false }
       ]
     },
     voice: {

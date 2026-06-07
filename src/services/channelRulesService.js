@@ -3,7 +3,7 @@ const { DEFAULT_PROTECTED_CHANNELS } = require('./protectedChannelService');
 
 const DEFAULT_RULES = [
   ...DEFAULT_PROTECTED_CHANNELS.map(name => ({ name, mode: 'panel_only', deleteMessages: true, allowLinks: true, allowAttachments: true, warnUser: true })),
-  { name: '🎵・музыка', mode: 'music_only', deleteMessages: false, allowLinks: true, allowAttachments: false, warnUser: false },
+  { name: '🎵・музыка-бот', mode: 'music_only', deleteMessages: false, allowLinks: true, allowAttachments: false, warnUser: false },
   { name: '💬・общий-чат', mode: 'free', deleteMessages: false, allowLinks: true, allowAttachments: true, warnUser: false },
 ];
 

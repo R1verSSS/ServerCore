@@ -41,7 +41,7 @@ module.exports = {
         .setColor(0x5865F2)
         .setTitle('🔔 Настройки уведомлений')
         .addFields(
-          { name: 'Канал уведомлений', value: settings.channelId ? `<#${settings.channelId}>` : 'не указан, используется 📢・объявления или 🛡・лог-модерации', inline: false },
+          { name: 'Канал уведомлений', value: settings.channelId ? `<#${settings.channelId}>` : 'не указан, используется 📢・объявления или 📋・лог-модерации', inline: false },
           { name: 'Daily', value: yesNo(settings.daily), inline: true },
           { name: 'Ивенты', value: yesNo(settings.events), inline: true },
           { name: 'Турниры', value: yesNo(settings.tournaments), inline: true },

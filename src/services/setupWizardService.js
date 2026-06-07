@@ -9,10 +9,10 @@ async function buildSetupWizardPayload(client, guild) {
   const report = await buildHealthReport(client, guild);
   const botMember = guild ? await guild.members.fetchMe().catch(() => null) : null;
   const rows = [
-    ['Канал логов', findChannel(guild, '🛡・лог-модерации'), 'Нужен для логов модерации и системных событий.'],
+    ['Канал логов', findChannel(guild, '📋・лог-модерации'), 'Нужен для логов модерации и системных событий.'],
     ['Канал ивентов', findChannel(guild, '📅・ивенты'), 'Нужен для публикации карточек ивентов.'],
     ['Канал мини-игр', findChannel(guild, '🎲・мини-игры'), 'Нужен для панели мини-игр.'],
-    ['Канал заявок', findChannel(guild, '📨・заявки'), 'Нужен для заявок и форм.'],
+    ['Канал заявок', findChannel(guild, '📥・заявки'), 'Нужен для заявок и форм.'],
     ['Voice-триггер', findChannel(guild, '➕・создать-комнату', ChannelType.GuildVoice), 'Создается через /voice setup.'],
     ['Manage Channels', botMember?.permissions.has(PermissionFlagsBits.ManageChannels), 'Нужно для тикетов, LFG и voice-комнат.'],
     ['Manage Messages', botMember?.permissions.has(PermissionFlagsBits.ManageMessages), 'Нужно для /clear и AutoMod.'],

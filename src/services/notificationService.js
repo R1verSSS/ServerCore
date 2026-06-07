@@ -164,7 +164,7 @@ async function sendChannelNotification(client, title, description, color = 0x586
 
   if (settings.channelId) channel = await client.channels.fetch(settings.channelId).catch(() => null);
   if (!channel && guild) channel = guild.channels.cache.find(c => c.name === '📢・объявления' && c.isTextBased());
-  if (!channel && guild) channel = guild.channels.cache.find(c => c.name === '🛡・лог-модерации' && c.isTextBased());
+  if (!channel && guild) channel = guild.channels.cache.find(c => c.name === '📋・лог-модерации' && c.isTextBased());
   if (!channel?.isTextBased()) return false;
 
   const embed = new EmbedBuilder()

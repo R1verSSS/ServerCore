@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType,
 const { readDatabase, writeDatabase, getOrCreateUser } = require('./dataStore');
 const { awardAchievement } = require('./achievementService');
 
-const LOG_CHANNEL_NAME = '🛡・лог-модерации';
+const LOG_CHANNEL_NAME = '📋・лог-модерации';
 const EVENTS_CHANNEL_NAME = '📅・ивенты';
 
 function ensureEvents(db) {
