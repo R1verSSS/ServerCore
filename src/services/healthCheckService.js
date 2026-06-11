@@ -47,17 +47,17 @@ async function buildHealthReport(client, guild) {
 
   checks.push(buildStorageCheck(info));
   checks.push(check(Object.keys(db.users || {}).length >= 0, 'База пользователей читается'));
-  checks.push(check(findTextChannel(guild, settings.logChannelName || '📋・лог-модерации'), `Канал логов: ${settings.logChannelName || '📋・лог-модерации'}`));
+  checks.push(check(findTextChannel(guild, settings.logChannelName || '🛡・лог-модерации'), `Канал логов: ${settings.logChannelName || '🛡・лог-модерации'}`));
   checks.push(check(findTextChannel(guild, settings.eventsChannelName || '📅・ивенты'), `Канал ивентов: ${settings.eventsChannelName || '📅・ивенты'}`));
   checks.push(check(findTextChannel(guild, settings.miniGamesChannelName || '🎲・мини-игры'), `Канал мини-игр: ${settings.miniGamesChannelName || '🎲・мини-игры'}`));
   const applicationsChannel = findTextOrForumChannel(
     guild,
-    settings.applicationsChannelName || '📥・заявки',
+    settings.applicationsChannelName || '📨・заявки',
     settings.applicationsChannelId || process.env.APPLICATIONS_CHANNEL_ID
   );
   checks.push(check(
     applicationsChannel,
-    `Канал заявок: ${applicationsChannel?.name || settings.applicationsChannelName || '📥・заявки'}`,
+    `Канал заявок: ${applicationsChannel?.name || settings.applicationsChannelName || '📨・заявки'}`,
     `Укажи applicationsChannelId или APPLICATIONS_CHANNEL_ID. Текущий ID: ${settings.applicationsChannelId || process.env.APPLICATIONS_CHANNEL_ID || 'не указан'}`
   ));
   checks.push(check(findVoiceChannel(guild, '➕・создать-комнату'), 'Voice-триггер: ➕・создать-комнату', 'Создай через /voice setup'));

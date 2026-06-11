@@ -1,11 +1,22 @@
 async function safeYoutubeValidate(url) {
+  if (!isYoutubeUrl(url)) return false;
+
+  // Сначала проверяем play-dl, чтобы не сломать playlist-режим.
+  // Если play-dl не распознал валидный video URL, используем локальный fallback
+  // через @distube/ytdl-core. Это помогает при `Invalid URL` на стороне play-dl.
   try {
     const result = play.yt_validate(url);
-    if (result && typeof result.then === 'function') return await result;
-    return result;
+    const resolved = result && typeof result.then === 'function' ? await result : result;
+    if (resolved) return resolved;
   } catch (_) {
-    return false;
+    // ignore and try fallback
   }
+
+  if (isDistubeYtdlAvailable() && distubeYtdl.validateURL(url)) {
+    return 'video';
+  }
+
+  return false;
 }
 
 function normalizeTrackUrl(value, fallback = '') {
@@ -32,15 +43,82 @@ const {
   entersState,
   getVoiceConnection,
   NoSubscriberBehavior,
+  StreamType,
 } = require('@discordjs/voice');
 const play = require('play-dl');
+let distubeYtdl = null;
+try {
+  distubeYtdl = require('@distube/ytdl-core');
+} catch (error) {
+  distubeYtdl = null;
+}
 const { execFileSync } = require('child_process');
 const { addAudit } = require('./auditService');
 const { isModuleEnabled } = require('./moduleService');
 
 const queues = new Map();
 const MAX_PLAYLIST_ITEMS = Number(process.env.MUSIC_MAX_PLAYLIST_ITEMS || 15);
+const USE_DISTUBE_YTDL = String(process.env.MUSIC_USE_DISTUBE_YTDL || 'true').toLowerCase() !== 'false';
+const YOUTUBE_COOKIE = String(process.env.MUSIC_YOUTUBE_COOKIE || '').trim();
 
+function shouldLogMusicDebug() {
+  return String(process.env.MUSIC_DEBUG || '').toLowerCase() === 'true';
+}
+
+function buildYtdlOptions(extra = {}) {
+  const headers = {};
+  if (YOUTUBE_COOKIE) headers.cookie = YOUTUBE_COOKIE;
+
+  return {
+    filter: 'audioonly',
+    quality: 'highestaudio',
+    highWaterMark: 1 << 25,
+    dlChunkSize: 0,
+    ...extra,
+    requestOptions: {
+      ...(extra.requestOptions || {}),
+      headers: {
+        ...(extra.requestOptions?.headers || {}),
+        ...headers,
+      },
+    },
+  };
+}
+
+function formatDurationFromSeconds(seconds) {
+  const total = Number(seconds || 0);
+  if (!Number.isFinite(total) || total <= 0) return '—';
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = Math.floor(total % 60);
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function isDistubeYtdlAvailable() {
+  return Boolean(USE_DISTUBE_YTDL && distubeYtdl && typeof distubeYtdl.validateURL === 'function');
+}
+
+function summarizeMusicError(error) {
+  if (!error) return 'unknown error';
+  const parts = [];
+  if (error.name) parts.push(error.name);
+  if (error.code) parts.push(`code=${error.code}`);
+  if (error.message) parts.push(error.message);
+  return parts.length ? parts.join(': ') : String(error);
+}
+
+function makeProviderError(provider, error) {
+  const wrapped = new Error(`${provider}: ${summarizeMusicError(error)}`);
+  wrapped.provider = provider;
+  wrapped.cause = error;
+  return wrapped;
+}
+
+function logMusicDebug(label, payload = {}) {
+  if (!shouldLogMusicDebug()) return;
+  console.log(`[Music] ${label}:`, payload);
+}
 
 function checkModuleAvailable(name) {
   try {
@@ -66,6 +144,8 @@ function buildVoiceDiagnosePayload() {
   stateSummary.push(`MUSIC_DEBUG: ${process.env.MUSIC_DEBUG || 'не задано'}`);
   stateSummary.push(`MUSIC_FORCE_IPV4: ${process.env.MUSIC_FORCE_IPV4 || 'не задано'}`);
   stateSummary.push(`MUSIC_CONNECT_TIMEOUT: ${process.env.MUSIC_CONNECT_TIMEOUT || 'не задано'}`);
+  stateSummary.push(`MUSIC_USE_DISTUBE_YTDL: ${process.env.MUSIC_USE_DISTUBE_YTDL || 'true'}`);
+  stateSummary.push(`MUSIC_YOUTUBE_COOKIE: ${YOUTUBE_COOKIE ? 'задан' : 'не задан'}`);
 
   const modules = [
     '@discordjs/voice',
@@ -75,6 +155,7 @@ function buildVoiceDiagnosePayload() {
     'libsodium-wrappers',
     'tweetnacl',
     'play-dl',
+    '@distube/ytdl-core',
   ];
 
   const embed = new EmbedBuilder()
@@ -160,6 +241,41 @@ function isYoutubeUrl(url = '') {
   }
 }
 
+async function resolveYoutubeVideoWithPlayDl(inputUrl, requestedBy) {
+  const info = await play.video_info(inputUrl);
+  const details = info.video_details || {};
+  const videoUrl = normalizeTrackUrl(details.url, inputUrl);
+
+  return {
+    title: details.title || 'YouTube audio',
+    url: videoUrl || inputUrl,
+    duration: details.durationRaw || '—',
+    requestedBy,
+    provider: 'play-dl',
+  };
+}
+
+async function resolveYoutubeVideoWithDistube(inputUrl, requestedBy) {
+  if (!isDistubeYtdlAvailable() || !distubeYtdl.validateURL(inputUrl)) {
+    throw new Error('@distube/ytdl-core is not available or URL is not supported');
+  }
+
+  const info = typeof distubeYtdl.getBasicInfo === 'function'
+    ? await distubeYtdl.getBasicInfo(inputUrl, buildYtdlOptions())
+    : await distubeYtdl.getInfo(inputUrl, buildYtdlOptions());
+
+  const details = info.videoDetails || {};
+  const videoUrl = normalizeTrackUrl(details.video_url || details.videoUrl || inputUrl, inputUrl);
+
+  return {
+    title: details.title || 'YouTube audio',
+    url: videoUrl || inputUrl,
+    duration: details.lengthSeconds ? formatDurationFromSeconds(details.lengthSeconds) : '—',
+    requestedBy,
+    provider: '@distube/ytdl-core',
+  };
+}
+
 async function resolveUrl(url, requestedBy) {
   const inputUrl = normalizeTrackUrl(url);
   if (!inputUrl || !isYoutubeUrl(inputUrl)) {
@@ -170,38 +286,63 @@ async function resolveUrl(url, requestedBy) {
   if (!validation) return { ok: false, reason: 'invalid_url' };
 
   if (validation === 'playlist') {
-    const playlist = await play.playlist_info(inputUrl, { incomplete: true });
-    const videos = await playlist.all_videos();
-    const items = videos
-      .slice(0, MAX_PLAYLIST_ITEMS)
-      .map(video => {
-        const itemUrl = normalizeTrackUrl(video.url, inputUrl);
-        return {
-          title: video.title || 'YouTube audio',
-          url: itemUrl,
-          duration: video.durationRaw || '—',
-          requestedBy,
-        };
-      })
-      .filter(item => item.url && isYoutubeUrl(item.url));
+    try {
+      const playlist = await play.playlist_info(inputUrl, { incomplete: true });
+      const videos = await playlist.all_videos();
+      const items = videos
+        .slice(0, MAX_PLAYLIST_ITEMS)
+        .map(video => {
+          const itemUrl = normalizeTrackUrl(video.url, inputUrl);
+          return {
+            title: video.title || 'YouTube audio',
+            url: itemUrl,
+            duration: video.durationRaw || '—',
+            requestedBy,
+            provider: 'play-dl-playlist',
+          };
+        })
+        .filter(item => item.url && isYoutubeUrl(item.url));
 
-    if (!items.length) return { ok: false, reason: 'no_valid_tracks' };
-    return { ok: true, items, playlistTitle: playlist.title || 'YouTube playlist' };
+      if (!items.length) return { ok: false, reason: 'no_valid_tracks' };
+      return { ok: true, items, playlistTitle: playlist.title || 'YouTube playlist' };
+    } catch (error) {
+      console.error('[Music] Не удалось получить YouTube playlist:', {
+        url: inputUrl,
+        error: summarizeMusicError(error),
+        stack: shouldLogMusicDebug() ? error?.stack : undefined,
+      });
+      return { ok: false, reason: 'youtube_info_failed', error };
+    }
   }
 
-  const info = await play.video_info(inputUrl);
-  const details = info.video_details || {};
-  const videoUrl = normalizeTrackUrl(details.url, inputUrl);
+  const errors = [];
 
-  return {
-    ok: true,
-    items: [{
-      title: details.title || 'YouTube audio',
-      url: videoUrl || inputUrl,
-      duration: details.durationRaw || '—',
-      requestedBy,
-    }]
-  };
+  // Сначала пробуем @distube/ytdl-core: он не native-зависимость и часто лучше переживает
+  // изменения YouTube, чем архивированный play-dl. Если пакет не установился на хостинге,
+  // бот не падает и просто перейдет к play-dl.
+  if (isDistubeYtdlAvailable()) {
+    try {
+      const item = await resolveYoutubeVideoWithDistube(inputUrl, requestedBy);
+      return { ok: true, items: [item] };
+    } catch (error) {
+      errors.push(makeProviderError('@distube/ytdl-core info', error));
+    }
+  }
+
+  try {
+    const item = await resolveYoutubeVideoWithPlayDl(inputUrl, requestedBy);
+    return { ok: true, items: [item] };
+  } catch (error) {
+    errors.push(makeProviderError('play-dl info', error));
+  }
+
+  console.error('[Music] Все провайдеры не смогли получить данные YouTube:', {
+    url: inputUrl,
+    errors: errors.map(error => error.message),
+    stack: shouldLogMusicDebug() ? errors.map(error => error.cause?.stack || error.stack).join('\n---\n') : undefined,
+  });
+
+  return { ok: false, reason: 'youtube_info_failed', errors };
 }
 
 async function ensureConnection(interaction) {
@@ -293,21 +434,85 @@ async function enqueue(interaction, url) {
 }
 
 
+async function openYoutubeStreamWithDistube(url) {
+  if (!isDistubeYtdlAvailable() || !distubeYtdl.validateURL(url)) {
+    throw new Error('@distube/ytdl-core is not available or URL is not supported');
+  }
+
+  const stream = distubeYtdl(url, buildYtdlOptions());
+  return {
+    stream,
+    type: StreamType.Arbitrary,
+    provider: '@distube/ytdl-core',
+  };
+}
+
+async function openYoutubeStreamWithPlayDl(url) {
+  try {
+    const stream = await play.stream(url, { discordPlayerCompatibility: true });
+    return {
+      ...stream,
+      provider: 'play-dl stream',
+    };
+  } catch (error) {
+    throw makeProviderError('play-dl stream', error);
+  }
+}
+
+async function openYoutubeStreamWithPlayDlInfo(url) {
+  try {
+    const info = await play.video_info(url);
+    if (typeof play.stream_from_info === 'function') {
+      const stream = await play.stream_from_info(info);
+      return {
+        ...stream,
+        provider: 'play-dl stream_from_info',
+      };
+    }
+
+    return await openYoutubeStreamWithPlayDl(url);
+  } catch (error) {
+    throw makeProviderError('play-dl stream_from_info', error);
+  }
+}
+
 async function openYoutubeStream(track) {
   const url = normalizeTrackUrl(track?.url);
   if (!url || !isYoutubeUrl(url)) {
     throw new Error(`Invalid track URL: ${url || 'empty'}`);
   }
 
-  // play-dl на некоторых версиях нестабильно обрабатывает play.stream(url)
-  // и внутри получает input: undefined. Через video_info + stream_from_info
-  // ссылка нормализуется надежнее.
-  const info = await play.video_info(url);
-  if (typeof play.stream_from_info === 'function') {
-    return await play.stream_from_info(info);
+  const errors = [];
+  logMusicDebug('Пробую открыть YouTube audio stream', { title: track?.title, url, providerHint: track?.provider });
+
+  // 1. Основной вариант — @distube/ytdl-core. Он optional: если зависимость не установилась
+  // на хостинге, бот не упадет при запуске, а продолжит работать через play-dl.
+  if (isDistubeYtdlAvailable()) {
+    try {
+      return await openYoutubeStreamWithDistube(url);
+    } catch (error) {
+      errors.push(makeProviderError('@distube/ytdl-core stream', error));
+    }
   }
 
-  return await play.stream(url);
+  // 2. Быстрый вариант play-dl.
+  try {
+    return await openYoutubeStreamWithPlayDl(url);
+  } catch (error) {
+    errors.push(error);
+  }
+
+  // 3. Старый безопасный вариант play-dl: сначала video_info, затем stream_from_info.
+  try {
+    return await openYoutubeStreamWithPlayDlInfo(url);
+  } catch (error) {
+    errors.push(error);
+  }
+
+  const message = `All YouTube stream providers failed: ${errors.map(error => error.message || String(error)).join(' | ')}`;
+  const finalError = new Error(message);
+  finalError.errors = errors;
+  throw finalError;
 }
 
 async function playNext(state) {
@@ -340,7 +545,9 @@ async function playNext(state) {
     console.error('[Music] Не удалось открыть аудиопоток:', {
       title: next.title,
       url: next.url,
-      error: error?.message || error,
+      error: summarizeMusicError(error),
+      providerErrors: Array.isArray(error?.errors) ? error.errors.map(item => item.message || String(item)) : undefined,
+      stack: shouldLogMusicDebug() ? error?.stack : undefined,
     });
     state.current = null;
     state.playing = false;
@@ -515,6 +722,7 @@ async function handleMusicModal(interaction) {
     if (result.reason === 'music_disabled') return musicDisabledPayload();
     if (result.reason === 'missing_voice_permissions') return { content: `❌ У меня нет доступа к voice-каналу **${result.voiceChannel?.name || 'канал'}**. Проверь права View Channel / Connect / Speak именно в этом канале или категории.`, embeds: [], components: [] };
     if (result.reason === 'connection_failed') return { content: `❌ Не удалось подключиться к voice-каналу **${result.voiceChannel?.name || 'канал'}**. Я записал подробную ошибку в логи хостинга.`, embeds: [], components: [] };
+    if (result.reason === 'youtube_info_failed') return { content: '❌ YouTube не отдал данные по ссылке. Частая причина — ограничение IP-ноды хостинга или проверка `Sign in to confirm you’re not a bot`. Подробности записаны в логи.', embeds: [], components: [] };
     return { content: `❌ Не удалось добавить трек: ${result.reason || 'ошибка'}.`, embeds: [], components: [] };
   }
 

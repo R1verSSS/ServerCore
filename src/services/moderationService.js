@@ -1,7 +1,7 @@
 const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const { readDatabase, writeDatabase } = require('./dataStore');
 
-const LOG_CHANNEL_NAME = '📋・лог-модерации';
+const LOG_CHANNEL_NAME = '🛡・лог-модерации';
 
 const DURATION_UNITS = {
   s: 1000,

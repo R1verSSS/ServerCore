@@ -65,10 +65,10 @@ function buildLfgButtons(lfg) {
 }
 
 async function findLfgChannel(guild) {
-  const cached = guild.channels.cache.find(ch => ch.name === '🎮・поиск-напарников' && [ChannelType.GuildForum, ChannelType.GuildText].includes(ch.type));
+  const cached = guild.channels.cache.find(ch => ch.name === '🎮・поиск-команды' && ch.type === ChannelType.GuildText);
   if (cached) return cached;
   const channels = await guild.channels.fetch().catch(() => null);
-  return channels?.find(ch => ch?.name === '🎮・поиск-напарников' && [ChannelType.GuildForum, ChannelType.GuildText].includes(ch.type)) || null;
+  return channels?.find(ch => ch?.name === '🎮・поиск-команды' && ch.type === ChannelType.GuildText) || null;
 }
 
 async function createVoiceRoom(guild, lfg) {
@@ -127,23 +127,9 @@ async function createLfg(interaction, { game, title, description, maxMembers, cr
 
   const targetChannel = await findLfgChannel(interaction.guild);
   if (targetChannel) {
-    if (targetChannel.type === ChannelType.GuildForum) {
-      const gameTag = targetChannel.availableTags?.find(tag => tag.name.toLowerCase() === lfg.game.toLowerCase());
-      const thread = await targetChannel.threads.create({
-        name: lfg.title.slice(0, 90),
-        message: { embeds: [buildLfgEmbed(lfg)], components: buildLfgButtons(lfg) },
-        appliedTags: gameTag ? [gameTag.id] : [],
-        reason: `LFG #${lfg.id} created by ${interaction.user.tag || interaction.user.id}`,
-      });
-      const starter = await thread.fetchStarterMessage().catch(() => null);
-      lfg.messageId = starter?.id || thread.id;
-      lfg.channelId = thread.id;
-      lfg.forumId = targetChannel.id;
-    } else {
-      const message = await targetChannel.send({ embeds: [buildLfgEmbed(lfg)], components: buildLfgButtons(lfg) });
-      lfg.messageId = message.id;
-      lfg.channelId = targetChannel.id;
-    }
+    const message = await targetChannel.send({ embeds: [buildLfgEmbed(lfg)], components: buildLfgButtons(lfg) });
+    lfg.messageId = message.id;
+    lfg.channelId = targetChannel.id;
   }
 
   const latest = readDatabase();

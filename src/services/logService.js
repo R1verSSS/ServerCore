@@ -31,7 +31,7 @@ function buildLogEmbed({ title, description, color = 0x5865F2, actor = null, tar
 async function sendLog(guild, titleOrOptions, description, color = 0x5865F2) {
   try {
     const settings = getSettings();
-    const channel = findTextChannelByName(guild, settings.logChannelName || '📋・лог-модерации');
+    const channel = findTextChannelByName(guild, settings.logChannelName || '🛡・лог-модерации');
     if (!channel) return false;
 
     const embed = typeof titleOrOptions === 'object'

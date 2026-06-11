@@ -18,11 +18,11 @@ const PANEL_DEFINITIONS = [
   { id: 'games', label: '🎲 Мини-игры', channel: '🎲・мини-игры' },
   { id: 'tickets', label: '🎫 Тикеты', channel: '🎫・создать-тикет' },
   { id: 'moderation', label: '🧰 Модерация', channel: '🧰・панель-модерации' },
-  { id: 'commands', label: '📚 Все команды', channel: '📚・частые-вопросы' },
-  { id: 'modcommands', label: '📘 Команды модерации', channel: '🤖・команды-модерации' },
+  { id: 'commands', label: '📚 Все команды', channel: '📚・команды' },
+  { id: 'modcommands', label: '📘 Команды модерации', channel: '📘・команды-модерации' },
   { id: 'threads', label: '🧵 Темы и ветки', channel: '🧭・навигация' },
   { id: 'voice', label: '🔊 Voice-комнаты', channel: '➕・создать-комнату' },
-  { id: 'music', label: '🎵 Музыка', channel: '🎵・музыка-бот' }
+  { id: 'music', label: '🎵 Музыка', channel: '🎵・музыка' }
 ];
 
 function ensureManagementDb(db) {

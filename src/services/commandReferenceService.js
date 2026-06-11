@@ -24,7 +24,7 @@ const SECTIONS = {
   },
   voice: {
     label: 'Voice', emoji: '🔊', title: '🔊 Голосовые комнаты',
-    lines: ['Зайди в `➕・создать-комнату`, чтобы получить личную комнату', 'Музыка: зайди в voice-канал и используй `/music play` или панель в `🎵・музыка-бот`', '`/voice info` — информация', '`/voice lock/unlock` — закрыть или открыть комнату', '`/voice rename` — переименовать', '`/voice limit` — лимит участников', '`/voice invite` — пригласить пользователя', '`/voice delete` — удалить комнату']
+    lines: ['Зайди в `➕・создать-комнату`, чтобы получить личную комнату', 'Музыка: зайди в voice-канал и используй `/music play` или панель в `🎵・музыка`', '`/voice info` — информация', '`/voice lock/unlock` — закрыть или открыть комнату', '`/voice rename` — переименовать', '`/voice limit` — лимит участников', '`/voice invite` — пригласить пользователя', '`/voice delete` — удалить комнату']
   },
   support: {
     label: 'Поддержка', emoji: '🎫', title: '🎫 Поддержка и заявки',
@@ -69,7 +69,7 @@ function buildPublicCommandsPanel() {
     .setDescription('Выбери раздел ниже, чтобы посмотреть команды. Большинство повседневных функций также доступно через `/menu open`.')
     .addFields(
       { name: '👤 Пользователям', value: 'Профиль, экономика, магазин, ивенты, voice и поддержка.', inline: false },
-      { name: '🛡 Модерации', value: 'Модераторские команды вынесены в закрытый канал `🤖・команды-модерации`.', inline: false }
+      { name: '🛡 Модерации', value: 'Модераторские команды вынесены в закрытый канал `📘・команды-модерации`.', inline: false }
     )
     .setFooter({ text: 'ServerCore • Command Reference' });
   const row = new ActionRowBuilder().addComponents(

@@ -49,3 +49,23 @@ PROTECTED_TEXT_CHANNELS=канал-1,канал-2,канал-3
 4. Управляет музыкой через кнопки.
 
 Важно: используйте только контент, который разрешено воспроизводить на вашем сервере.
+
+
+## Диагностика YouTube-аудио
+
+Если Discord Voice подключается, но YouTube не открывает поток (`Invalid URL`, `Sign in to confirm you’re not a bot`, `no playable formats`), проверь отдельно YouTube-провайдеры:
+
+```bash
+npm run music:youtube:diagnose -- https://www.youtube.com/watch?v=Jqn1XNc_094
+```
+
+Начиная с v24.1.42 бот сначала пробует optional fallback `@distube/ytdl-core`, затем `play-dl`. Если `@distube/ytdl-core` не установился на ограниченном хостинге, запуск бота не ломается — останется старый `play-dl`-путь.
+
+Переменные:
+
+```env
+MUSIC_USE_DISTUBE_YTDL=true
+MUSIC_YOUTUBE_COOKIE=
+```
+
+`MUSIC_YOUTUBE_COOKIE` заполняй только как секретную переменную окружения и только если действительно нужно обойти YouTube bot-check. Не добавляй cookie в Git.

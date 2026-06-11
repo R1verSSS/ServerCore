@@ -1,7 +1,7 @@
 {
   "name": "servercore-discord-bot",
-  "version": "24.2.0",
-  "description": "ServerCore Discord bot v24.2 Channel Structure & Navigation Cleanup",
+  "version": "24.1.42",
+  "description": "ServerCore Discord bot v24.1 music YouTube fallback upgrade",
   "main": "http-wrapper.js",
   "scripts": {
     "start": "node http-wrapper.js",
@@ -20,7 +20,8 @@
     "start:direct": "node src/index.js",
     "hosting:start": "node http-wrapper.js",
     "postinstall": "node -e \"const fs=require('fs'); for (const d of ['data','data/backups','data/exports','logs']) fs.mkdirSync(d,{recursive:true});\"",
-    "voice:diagnose": "node src/tools/voice-diagnose.js"
+    "voice:diagnose": "node src/tools/voice-diagnose.js",
+    "music:youtube:diagnose": "node src/tools/music-youtube-diagnose.js"
   },
   "dependencies": {
     "@discordjs/voice": "^0.19.0",
@@ -37,6 +38,9 @@
     "tweetnacl": "^1.0.3"
   },
   "engines": {
-    "node": ">=20"
+    "node": "20.x"
+  },
+  "optionalDependencies": {
+    "@distube/ytdl-core": "^4.16.12"
   }
 }

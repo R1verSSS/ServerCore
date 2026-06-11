@@ -12,7 +12,6 @@ const { buildPublicCommandsPanel, buildModerationCommandsPanel } = require('./se
 const { buildWebPanelMenuPayload } = require('./services/webPanelMenuService');
 const { buildThreadPanel } = require('./services/threadForumService');
 const { buildBotQuickMenuPanel } = require('./services/botQuickMenuService');
-const { buildTicketTypeSelectPayload } = require('./services/ticketService');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
@@ -32,14 +31,9 @@ async function createRoleIfMissing(guild, roleConfig) {
 }
 
 async function createCategoryIfMissing(guild, categoryConfig, moderatorRole, adminRole, helperRole) {
-  const acceptedNames = [categoryConfig.name, ...(categoryConfig.aliases || [])];
   let category = guild.channels.cache.find(
-    channel => acceptedNames.includes(channel.name) && channel.type === ChannelType.GuildCategory
+    channel => channel.name === categoryConfig.name && channel.type === 4
   );
-
-  if (category && category.name !== categoryConfig.name) {
-    await category.setName(categoryConfig.name, 'ServerCore v24.2 category migration').catch(() => null);
-  }
 
   if (!category) {
     const options = {
@@ -76,32 +70,20 @@ async function createCategoryIfMissing(guild, categoryConfig, moderatorRole, adm
 }
 
 async function createChannelIfMissing(guild, channelConfig, parent) {
-  const acceptedNames = [channelConfig.name, ...(channelConfig.aliases || [])];
-  let existing = guild.channels.cache.find(channel =>
-    acceptedNames.includes(channel.name) && channel.type === channelConfig.type
+  let existing = guild.channels.cache.find(
+    channel => channel.name === channelConfig.name && channel.parentId === parent.id
   );
 
-  // Text -> Forum cannot be converted directly. Archive the old channel and create the forum.
-  if (!existing) {
-    const wrongType = guild.channels.cache.find(channel => acceptedNames.includes(channel.name));
-    if (wrongType) {
-      const archiveName = `${wrongType.name}-архив`.slice(0, 95);
-      await wrongType.setName(archiveName, 'ServerCore: replacing channel with another type').catch(() => null);
-    }
+  // Discord не умеет менять тип канала Text → Forum.
+  // Поэтому при переходе на forum-структуру старый текстовый канал аккуратно переименовывается в архив,
+  // а рядом создается новый forum-канал с исходным именем.
+  if (existing && existing.type !== channelConfig.type) {
+    const archiveName = `${channelConfig.name}-архив`.slice(0, 95);
+    await existing.setName(archiveName, 'ServerCore: replacing channel with another type').catch(() => null);
+    existing = null;
   }
 
-  if (existing) {
-    if (existing.name !== channelConfig.name) {
-      await existing.setName(channelConfig.name, 'ServerCore v24.2 channel rename').catch(() => null);
-    }
-    if (existing.parentId !== parent.id) {
-      await existing.setParent(parent.id, { lockPermissions: false, reason: 'ServerCore v24.2 navigation cleanup' }).catch(() => null);
-    }
-    if (channelConfig.topic && 'setTopic' in existing && existing.topic !== channelConfig.topic) {
-      await existing.setTopic(channelConfig.topic, 'ServerCore v24.2 topic refresh').catch(() => null);
-    }
-    return existing;
-  }
+  if (existing) return existing;
 
   const options = {
     name: channelConfig.name,
@@ -113,7 +95,6 @@ async function createChannelIfMissing(guild, channelConfig, parent) {
 
   if (channelConfig.type === ChannelType.GuildForum) {
     options.availableTags = (channelConfig.tags || []).slice(0, 20).map(name => ({ name, moderated: false }));
-    if (channelConfig.defaultReactionEmoji) options.defaultReactionEmoji = channelConfig.defaultReactionEmoji;
   }
 
   return guild.channels.create(options);
@@ -135,16 +116,15 @@ async function sendStarterMessages(guild) {
   const rules = guild.channels.cache.find(ch => ch.name === '📜・правила');
   const navigation = guild.channels.cache.find(ch => ch.name === '🧭・навигация');
   const rolesChannel = guild.channels.cache.find(ch => ch.name === '✅・получить-роли');
-  const commandsChannel = guild.channels.cache.find(ch => ch.name === '📚・частые-вопросы');
+  const commandsChannel = guild.channels.cache.find(ch => ch.name === '📚・команды');
   const threadHub = guild.channels.cache.find(ch => ch.name === '🧭・навигация') || guild.channels.cache.find(ch => ch.name === '🤖・команды-бота');
   const shopChannel = guild.channels.cache.find(ch => ch.name === '🛍・витрина');
   const botChannel = guild.channels.cache.find(ch => ch.name === '🤖・команды-бота');
   const miniGames = guild.channels.cache.find(ch => ch.name === '🎲・мини-игры');
-  const musicText = guild.channels.cache.find(ch => ch.name === '🎵・музыка-бот' && ch.type === ChannelType.GuildText);
-  const ticketCreate = guild.channels.cache.find(ch => ch.name === '🎫・создать-тикет');
+  const musicText = guild.channels.cache.find(ch => ch.name === '🎵・музыка' && ch.type === ChannelType.GuildText);
   const voiceHelp = guild.channels.cache.find(ch => ch.name === '🔊・общий войс') || guild.channels.cache.find(ch => ch.name === '🎧・чилл');
   const modPanel = guild.channels.cache.find(ch => ch.name === '🧰・панель-модерации');
-  const modCommands = guild.channels.cache.find(ch => ch.name === '🤖・команды-модерации');
+  const modCommands = guild.channels.cache.find(ch => ch.name === '📘・команды-модерации');
 
   const rulesEmbed = new EmbedBuilder()
     .setColor(0xED4245)
@@ -154,7 +134,7 @@ async function sendStarterMessages(guild) {
   const navigationEmbed = new EmbedBuilder()
     .setColor(0x5865F2)
     .setTitle('🧭 Навигация')
-    .setDescription('📌 **ВАЖНОЕ** — правила, объявления, роли и новости.\n💬 **ОБЩЕНИЕ** — общий чат, темы, фото, мемы и предложения.\n🤖 **БОТ И АКТИВНОСТИ** — команды, музыка, мини-игры, турниры и ивенты.\n🎮 **ИГРЫ** — поиск напарников и кланы.\n💻 **ПРОЕКТЫ И IT** — программирование, помощь с кодом и проекты.\n🎫 **ПОДДЕРЖКА** — вопросы, тикеты и частые вопросы.\n🔊 **ГОЛОСОВЫЕ** — комнаты для общения и игр.\n\n**Быстрый старт:** `/menu open` → `/roles` → `/daily` → `/profile`.');
+    .setDescription('📌 **ВАЖНОЕ** — правила, объявления и получение ролей.\n💬 **ОБЩЕНИЕ** — общий чат, мемы, фото и музыка.\n🎮 **ИГРЫ И АКТИВНОСТИ** — поиск команды, турниры и ивенты.\n💻 **ПРОЕКТЫ И IT** — программирование, помощь с кодом и проекты.\n🔊 **ГОЛОСОВЫЕ** — комнаты для общения и игр.\n\n**Быстрый старт:** `/menu open` → `/roles` → `/daily` → `/profile`.');
 
   const botEmbed = new EmbedBuilder()
     .setColor(0x57F287)
@@ -167,7 +147,6 @@ async function sendStarterMessages(guild) {
   await sendOnce(navigation, buildWebPanelMenuPayload(), '🌐 Веб-панель ServerCore', { pin: true });
   await sendOnce(rolesChannel, buildRolePanel(), '✅ Выбор ролей');
   await sendOnce(commandsChannel, buildPublicCommandsPanel(), '📚 Команды сервера');
-  await sendOnce(ticketCreate, buildTicketTypeSelectPayload(), '🎫 Создание тикета', { pin: true });
   await sendOnce(threadHub, buildThreadPanel(), '🧵 Темы и ветки сервера', { pin: true });
   await sendOnce(shopChannel, buildShopPanel(), '🛒 Магазин сервера');
   await sendOnce(botChannel, buildBotQuickMenuPanel(), '🤖 Быстрое меню бота', { pin: true });
@@ -203,14 +182,12 @@ client.once('clientReady', async () => {
     const adminRole = createdRoles.get('🛡 Admin');
     const helperRole = createdRoles.get('🧰 Helper');
 
-    for (const [categoryIndex, categoryConfig] of categories.entries()) {
+    for (const categoryConfig of categories) {
       const category = await createCategoryIfMissing(guild, categoryConfig, moderatorRole, adminRole, helperRole);
-      await category.setPosition(categoryIndex, { reason: 'ServerCore v24.2 category ordering' }).catch(() => null);
       console.log(`Category ready: ${category.name}`);
 
-      for (const [channelIndex, channelConfig] of categoryConfig.channels.entries()) {
+      for (const channelConfig of categoryConfig.channels) {
         const channel = await createChannelIfMissing(guild, channelConfig, category);
-        await channel.setPosition(channelIndex, { reason: 'ServerCore v24.2 channel ordering' }).catch(() => null);
         console.log(`Channel ready: ${channel.name}`);
       }
     }

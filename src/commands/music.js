@@ -39,6 +39,7 @@ module.exports = {
         if (result.reason === 'only_youtube') text = '❌ Сейчас поддерживаются только ссылки YouTube.';
         if (result.reason === 'invalid_url') text = '❌ Не удалось распознать YouTube-ссылку.';
         if (result.reason === 'connection_failed') text = '❌ Не удалось подключиться к voice-каналу. Проверь права Connect/Speak.';
+        if (result.reason === 'youtube_info_failed') text = '❌ YouTube не отдал данные по ссылке. Возможна проверка/блокировка IP-ноды хостинга. Подробности записаны в логи.';
         await safeEdit(interaction, { content: text, embeds: [], components: [] });
         return;
       }

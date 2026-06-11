@@ -33,9 +33,9 @@ async function udpProbe() {
   console.log(`Platform: ${process.platform} ${process.arch}`);
   console.log(`PWD: ${process.cwd()}`);
   console.log('');
-  ['MUSIC_ENABLED','MUSIC_DEBUG','MUSIC_FORCE_IPV4','MUSIC_CONNECT_TIMEOUT','NODE_ENV'].forEach(nodeEnv);
+  ['MUSIC_ENABLED','MUSIC_DEBUG','MUSIC_FORCE_IPV4','MUSIC_CONNECT_TIMEOUT','MUSIC_USE_DISTUBE_YTDL','MUSIC_YOUTUBE_COOKIE','NODE_ENV'].forEach(nodeEnv);
   console.log('');
-  ['@discordjs/voice','@discordjs/opus','opusscript','sodium-native','libsodium-wrappers','tweetnacl','play-dl'].forEach(hasModule);
+  ['@discordjs/voice','@discordjs/opus','opusscript','sodium-native','libsodium-wrappers','tweetnacl','play-dl','@distube/ytdl-core'].forEach(hasModule);
   console.log('');
   commandVersion('ffmpeg', ['-version']);
   commandVersion('ffprobe', ['-version']);
@@ -46,6 +46,7 @@ async function udpProbe() {
   console.log('');
   console.log('Summary:');
   console.log('- If all modules and ffmpeg are OK, but Discord voice hangs on signalling, likely cause is Docker/NAT UDP/IP discovery on the hosting node.');
-  console.log('- Send this output plus voice connection logs to the hosting support if /music play still fails.');
+  console.log('- If Discord voice is OK but YouTube streams fail, run: npm run music:youtube:diagnose -- <youtube-url>');
+  console.log('- Send this output plus voice/music logs to the hosting support if /music play still fails.');
   console.log('===========================================');
 })().catch((error) => { fail('diagnose crashed', error.stack || error.message); process.exitCode = 1; });

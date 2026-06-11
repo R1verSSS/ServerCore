@@ -50,6 +50,9 @@ MUSIC_ENABLED=false
 MUSIC_DEBUG=true
 MUSIC_FORCE_IPV4=true
 MUSIC_CONNECT_TIMEOUT=45000
+MUSIC_USE_DISTUBE_YTDL=true
+# Только как секрет ENV, если YouTube просит bot-check/sign-in:
+MUSIC_YOUTUBE_COOKIE=
 ```
 
 ## Проверка

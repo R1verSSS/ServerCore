@@ -31,9 +31,9 @@ const THREAD_FORUMS = {
     tags: ['Вопрос', 'Ошибка', 'Discord', 'Бот', 'Другое'],
   },
   lfg: {
-    label: 'Поиск напарников',
+    label: 'Поиск команды',
     emoji: '🎮',
-    channelName: '🎮・поиск-напарников',
+    channelName: '🎮・поиск-команды',
     titlePlaceholder: 'Например: CS2 — ищу 2 игроков',
     bodyPlaceholder: 'Игра, время, сколько игроков нужно, требования.',
     tags: ['CS2', 'Minecraft', 'Valorant', 'GTA', 'Другое'],
@@ -90,7 +90,7 @@ function buildThreadPanel() {
     .addFields(
       { name: '🧵 Личная тема', value: 'Дневник, сетап, свои обсуждения.', inline: true },
       { name: '❓ Вопрос', value: 'Отдельная ветка для помощи.', inline: true },
-      { name: '🎮 Поиск напарников', value: 'Сбор людей для игр.', inline: true },
+      { name: '🎮 Поиск команды', value: 'Сбор людей для игр.', inline: true },
       { name: '💡 Предложение', value: 'Идеи и улучшения сервера.', inline: true },
       { name: '🚀 Проект', value: 'Проекты участников.', inline: true },
       { name: '🛠 Код', value: 'Помощь с ошибками и задачами.', inline: true },

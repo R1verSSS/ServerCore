@@ -175,7 +175,7 @@ function findApplicationsChannel(guild, settings = getSettings(), app = null) {
     : (settings.applicationsChannelId || process.env.APPLICATIONS_CHANNEL_ID);
   const channelName = isComplaint
     ? (settings.complaintsChannelName || process.env.COMPLAINTS_CHANNEL_NAME || '🚨・жалобы')
-    : (settings.applicationsChannelName || '📥・заявки');
+    : (settings.applicationsChannelName || '📨・заявки');
 
   const allowedTypes = new Set([ChannelType.GuildText, ChannelType.GuildForum, ChannelType.GuildAnnouncement]);
   const byId = channelId ? guild?.channels?.cache?.get(String(channelId)) : null;
@@ -188,7 +188,7 @@ function findApplicationsChannel(guild, settings = getSettings(), app = null) {
 function getApplicationChannelName(app, settings = getSettings()) {
   return app?.type === 'complaint'
     ? (settings.complaintsChannelName || process.env.COMPLAINTS_CHANNEL_NAME || '🚨・жалобы')
-    : (settings.applicationsChannelName || '📥・заявки');
+    : (settings.applicationsChannelName || '📨・заявки');
 }
 
 function getForumTagsForApplicationChannel(app) {
