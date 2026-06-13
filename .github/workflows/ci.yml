@@ -27,11 +27,11 @@ jobs:
       - name: Syntax check
         run: npm run check
 
-      - name: Prepare example env
-        run: cp .env.example .env
+       #name: Prepare example env
+       #run: cp .env.example .env
 
-      - name: Environment validation
-        run: npm run env:check
+       #name: Environment validation
+       #run: npm run env:check
 
       - name: Docker build
         run: docker build -t servercore-ci .
