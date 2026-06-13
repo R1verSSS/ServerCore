@@ -24,16 +24,16 @@
     "music:youtube:diagnose": "node src/tools/music-youtube-diagnose.js"
   },
   "dependencies": {
-    "@discordjs/voice": "^0.19.0",
+    "@discordjs/opus": "^0.10.0",
+    "@discordjs/voice": "0.17.0",
+    "better-sqlite3": "^11.9.1",
     "discord.js": "^14.18.0",
     "dotenv": "^16.4.7",
     "express": "^4.19.2",
     "libsodium-wrappers": "^0.7.15",
+    "opusscript": "^0.1.1",
     "play-dl": "^1.9.7",
     "pngjs": "^7.0.0",
-    "better-sqlite3": "^11.9.1",
-    "@discordjs/opus": "^0.10.0",
-    "opusscript": "^0.1.1",
     "sodium-native": "^4.3.3",
     "tweetnacl": "^1.0.3"
   },
