@@ -1,7 +1,7 @@
 {
   "name": "servercore-discord-bot",
   "version": "24.1.42",
-  "description": "ServerCore Discord bot v24.1 music YouTube fallback upgrade",
+  "description": "ServerCore — Discord management platform with bot, web panel, SQLite, Docker and production diagnostics",
   "main": "http-wrapper.js",
   "scripts": {
     "start": "node http-wrapper.js",
@@ -42,5 +42,16 @@
   },
   "optionalDependencies": {
     "@distube/ytdl-core": "^4.16.12"
-  }
+  },
+  "keywords": [
+    "discord",
+    "discord-bot",
+    "discord-js",
+    "nodejs",
+    "express",
+    "sqlite",
+    "docker",
+    "moderation",
+    "community-management"
+  ]
 }

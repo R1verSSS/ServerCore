@@ -1,0 +1,11 @@
+flowchart LR
+    U[Discord users] --> D[Discord Server]
+    D --> B[ServerCore Bot / discord.js]
+    A[Admins / Moderators] --> W[Express Web Panel]
+    W --> S[Service Layer]
+    B --> S
+    S --> DB[(SQLite database)]
+    S --> F[(Backups / Exports / Logs)]
+    S --> H[Health / Hosting / Network checks]
+    C[GitHub Actions] --> Docker[Docker build]
+    Docker --> Runtime[Node.js 20 runtime]

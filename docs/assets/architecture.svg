@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650" role="img" aria-label="ServerCore architecture diagram">
+  <style>
+    .box { fill: #f8fafc; stroke: #334155; stroke-width: 2; rx: 14; }
+    .title { font: 700 22px Arial, sans-serif; fill: #0f172a; }
+    .text { font: 16px Arial, sans-serif; fill: #0f172a; }
+    .small { font: 14px Arial, sans-serif; fill: #334155; }
+    .arrow { stroke: #334155; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+    .group { fill: #eef2ff; stroke: #6366f1; stroke-width: 2; rx: 18; opacity: 0.9; }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#334155" />
+    </marker>
+  </defs>
+
+  <text x="40" y="45" class="title">ServerCore — Discord Management Platform</text>
+  <text x="40" y="75" class="small">Node.js 20 • discord.js v14 • Express • SQLite • Docker • CI/CD</text>
+
+  <rect x="40" y="115" width="220" height="105" class="box" />
+  <text x="65" y="150" class="text">Discord users</text>
+  <text x="65" y="178" class="small">buttons, commands,</text>
+  <text x="65" y="200" class="small">select-menu, forum</text>
+
+  <rect x="40" y="290" width="220" height="105" class="box" />
+  <text x="65" y="325" class="text">Admins / Moderators</text>
+  <text x="65" y="353" class="small">web dashboard, audit,</text>
+  <text x="65" y="375" class="small">health, backups</text>
+
+  <rect x="345" y="115" width="245" height="105" class="box" />
+  <text x="370" y="150" class="text">Discord bot</text>
+  <text x="370" y="178" class="small">src/commands</text>
+  <text x="370" y="200" class="small">discord.js v14</text>
+
+  <rect x="345" y="290" width="245" height="105" class="box" />
+  <text x="370" y="325" class="text">Express web panel</text>
+  <text x="370" y="353" class="small">src/web/server.js</text>
+  <text x="370" y="375" class="small">admin + user panel</text>
+
+  <rect x="675" y="190" width="245" height="130" class="box" />
+  <text x="700" y="225" class="text">Service layer</text>
+  <text x="700" y="253" class="small">src/services</text>
+  <text x="700" y="275" class="small">UX, tickets, economy,</text>
+  <text x="700" y="297" class="small">moderation, access</text>
+
+  <rect x="980" y="90" width="180" height="90" class="box" />
+  <text x="1005" y="125" class="text">SQLite</text>
+  <text x="1005" y="153" class="small">dataStore</text>
+
+  <rect x="980" y="220" width="180" height="90" class="box" />
+  <text x="1005" y="255" class="text">Files</text>
+  <text x="1005" y="283" class="small">logs / backups</text>
+
+  <rect x="980" y="350" width="180" height="90" class="box" />
+  <text x="1005" y="385" class="text">Diagnostics</text>
+  <text x="1005" y="413" class="small">health / hosting</text>
+
+  <rect x="345" y="485" width="575" height="90" class="box" />
+  <text x="370" y="520" class="text">Infrastructure</text>
+  <text x="370" y="548" class="small">Dockerfile • docker-compose • GitHub Actions • Bothost/VPS</text>
+
+  <path class="arrow" d="M260 168 L345 168" />
+  <path class="arrow" d="M260 343 L345 343" />
+  <path class="arrow" d="M590 168 C635 168 635 225 675 225" />
+  <path class="arrow" d="M590 343 C635 343 635 285 675 285" />
+  <path class="arrow" d="M920 225 C950 225 950 135 980 135" />
+  <path class="arrow" d="M920 255 L980 265" />
+  <path class="arrow" d="M920 295 C950 295 950 395 980 395" />
+  <path class="arrow" d="M633 485 L633 395" />
+</svg>

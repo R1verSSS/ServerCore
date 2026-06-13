@@ -1,159 +1,254 @@
-# ServerCore Discord Bot v24.1 Hosting Ready
+# ServerCore — Discord Management Platform
 
-This is a clean hosting-ready build. Runtime files are intentionally excluded: `.env`, `node_modules`, `logs`, `data/database.*`, `data/backups`, and `data/exports`.
+**ServerCore** — это комплексная платформа для управления Discord-сообществом: Discord-бот, пользовательская веб-панель, административная панель, система ролей, тикеты, экономика, магазин, достижения, onboarding, forum-темы, модерация, бэкапы, диагностика хостинга и production-проверки.
 
-For BotHost-like hosting panels, use:
+Проект сделан как практическая full-stack система вокруг реального Discord-сервера: пользователь взаимодействует с сервером через slash-команды, кнопки, select-menu, forum-формы и личный кабинет, а администрация управляет сервером через web-панель и служебные команды.
 
-- Main file: `http-wrapper.js`
-- Install command: `npm install`
-- Start command: `npm start`
-- Web port: `3000`
+## Кратко
 
-See `HOSTING_BOTHOST_SETUP.md` for the exact environment variables.
+| Раздел | Описание |
+|---|---|
+| Стек | Node.js 20, discord.js v14, Express, SQLite / JSON fallback, Docker |
+| Интерфейсы | Discord slash-команды, кнопки, select-menu, forum-темы, web-панель |
+| База данных | SQLite через `better-sqlite3` / `node:sqlite`, fallback на JSON |
+| Запуск | `npm install`, `npm run deploy`, `npm run db:migrate`, `npm start` |
+| Docker | `Dockerfile`, `docker-compose.yml`, volume для `data` и `logs` |
+| CI/CD | GitHub Actions: syntax check, env validation, Docker build |
+| Назначение | Автоматизация Discord-сервера и демонстрация production-подхода к pet-проекту |
 
----
+## Что умеет проект
 
-# ServerCore Discord Bot
+- Управлять Discord-сервером через команды, кнопки и панели.
+- Давать пользователям единый **Мой центр** с профилем, балансом, Daily, тикетами, темами и web-панелью.
+- Обрабатывать тикеты, заявки, жалобы, предложения, LFG и forum-темы.
+- Вести XP, уровни, репутацию, достижения, бейджи, экономику, магазин, инвентарь и Battle Pass.
+- Автоматизировать onboarding новых участников.
+- Давать модераторам инструменты warn, mute, clear, cases, history и context-menu действия.
+- Давать администраторам web-панель, audit, backup/export, production-check, health-check и диагностику хостинга.
+- Работать локально, на VPS, в Docker и на BotHost/Bothost-подобном хостинге.
 
-Discord-сервер и бот с ролями, профилями, XP, экономикой, тикетами, ивентами, модерацией, мини-играми, Battle Pass, веб-панелью, бэкапами и production-polish улучшениями.
+## Архитектура
+
+Основная схема находится в [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+```mermaid
+flowchart LR
+    U[Discord users] --> D[Discord Server]
+    D --> B[ServerCore Bot / discord.js]
+    A[Admins / Moderators] --> W[Express Web Panel]
+    W --> S[Service Layer]
+    B --> S
+    S --> DB[(SQLite database)]
+    S --> FS[(Backups / Exports / Logs)]
+    S --> H[Health / Hosting / Network checks]
+```
 
 ## Быстрый старт
 
+### 1. Установить зависимости
+
 ```bash
 npm install
+```
+
+### 2. Подготовить `.env`
+
+```bash
+cp .env.example .env
+```
+
+Минимально заполнить:
+
+```env
+DISCORD_TOKEN=
+CLIENT_ID=
+GUILD_ID=
+WEB_PASSWORD=
+WEB_SESSION_TOKEN=
+DB_DRIVER=sqlite
+SQLITE_PATH=./data/database.sqlite
+WEB_PANEL_ENABLED=true
+WEB_PORT=3000
+```
+
+`.env` нельзя публиковать в GitHub, потому что там находятся токены и пароли.
+
+### 3. Зарегистрировать Discord-команды
+
+```bash
 npm run deploy
+```
+
+### 4. Выполнить миграцию базы
+
+```bash
 npm run db:migrate
+```
+
+### 5. Запустить проект
+
+```bash
 npm start
 ```
 
-## Проверки
-
-```bash
-npm run check
-npm run env:check
-npm run hosting:check
-npm run safe:update
-```
-
-## Основные файлы
-
-- `.env` — секреты и настройки запуска.
-- `data/database.sqlite` — база данных.
-- `data/backups/` — резервные копии.
-- `logs/` — файловые логи.
-- `docs/` — документация.
-- `src/config/serverConfig.js` — основные названия каналов, ролей и дефолтные значения.
-
-## Веб-панель
-
-Обычно доступна по адресу:
+Web-панель локально:
 
 ```text
 http://localhost:3000
 ```
 
-Полезные страницы:
-
-```text
-/health
-/hosting
-/docs
-/audit
-/project
-```
-
-## Хостинг
-
-Перед переносом выполни:
+## Docker-запуск
 
 ```bash
-npm run safe:update
-npm run hosting:check
+docker compose up -d --build
 ```
 
-Для VPS можно использовать `ecosystem.config.js` и PM2.
+Контейнер использует:
 
-## Operator diagnostics
+- порт `3000`;
+- volume `./data:/app/data` для базы данных;
+- volume `./logs:/app/logs` для логов;
+- `.env` как источник переменных окружения.
 
-Для комплексной проверки проекта доступны команды:
+Подробнее: [`docs/DEPLOYMENT_DOCKER_CI.md`](docs/DEPLOYMENT_DOCKER_CI.md).
+
+## База данных и миграции
+
+Проект поддерживает SQLite и fallback на JSON.
+
+```bash
+npm run db:migrate
+npm run db:backup
+```
+
+Ключевые настройки:
+
+```env
+DB_DRIVER=sqlite
+SQLITE_PATH=./data/database.sqlite
+```
+
+Подробнее: [`docs/DATABASE_AND_MIGRATIONS.md`](docs/DATABASE_AND_MIGRATIONS.md).
+
+## Роли доступа
+
+В проекте есть централизованная модель доступа:
+
+| Уровень | Назначение |
+|---|---|
+| Member | базовые пользовательские функции |
+| VIP | расширенные пользовательские возможности |
+| Helper | помощь с тикетами, заявками и историей |
+| Moderator | модерация, предупреждения, mute, clear, cases |
+| Admin | настройки, панели, AutoMod, backups, events, tournaments |
+| Owner | maintenance, restore, критичные системные действия |
+
+Подробнее: [`docs/ROLES_ACCESS.md`](docs/ROLES_ACCESS.md).
+
+## Основные модули
+
+Полный список модулей описан в [`docs/MODULES.md`](docs/MODULES.md). Основные блоки:
+
+- User Center / UX Flow;
+- профили, XP, уровни, достижения и бейджи;
+- экономика, daily, магазин, инвентарь;
+- тикеты, заявки, жалобы, предложения;
+- forum-темы и пользовательские списки;
+- onboarding;
+- роли и access-control;
+- модерация и AutoMod;
+- события, турниры, LFG, временные voice-комнаты;
+- web-панель администратора и пользователя;
+- backup/export, audit, health, hosting/network diagnostics;
+- музыкальный модуль с диагностикой Discord Voice / YouTube.
+
+## Скриншоты
+
+Файл [`docs/SCREENSHOTS.md`](docs/SCREENSHOTS.md) содержит чеклист скриншотов для портфолио и имена файлов, которые лучше положить в `docs/assets/screenshots/`.
+
+Рекомендуемый набор:
+
+- `/me` — Smart User Center;
+- `/roles` — выбор ролей через select-menu;
+- `/ticket` или web-форма тикета;
+- пользовательская web-панель;
+- admin dashboard;
+- health/hosting diagnostics;
+- `/commands` или справочник команд;
+- shop/deals;
+- forum thread creation.
+
+## Проверки качества
 
 ```bash
 npm run check
 npm run env:check
+npm run hosting:check
 npm run net:check
 npm run doctor
+npm run production:check
 ```
 
-В веб-панели доступна страница:
+## CI/CD
+
+В репозитории добавлен workflow:
 
 ```text
-http://localhost:3000/network
+.github/workflows/ci.yml
 ```
 
+Он проверяет синтаксис, env-конфигурацию и сборку Docker-образа. Подробнее: [`docs/DEPLOYMENT_DOCKER_CI.md`](docs/DEPLOYMENT_DOCKER_CI.md).
 
-## Web Panel UX Upgrade
+## Какие проблемы решались
 
-Последнее обновление v24.1 улучшает веб-панель: поиск и фильтры в таблицах, расширенную карточку пользователя, мастер публикации Discord-панелей, защиту входа, улучшенный audit и очищенную документацию. Подробнее: `docs/web-panel-ux.md`.
+Проект показывает не только набор функций, но и инженерную работу:
 
-## v24.1 Access & Server Structure Upgrade
+- перевод хранения данных с JSON на SQLite с fallback;
+- безопасная работа с `.env`, токенами и production-настройками;
+- стабилизация Discord interactions: deferred replies, expired interactions, safe edit/update;
+- адаптация под Node.js 20 и хостинг с ограничениями;
+- Docker-сборка с системными зависимостями для Discord Voice;
+- диагностика UDP, ffmpeg, opus, libsodium и YouTube audio restrictions;
+- проектирование UX, где пользователь действует через кнопки и web-панель, а не запоминает команды.
 
-Добавлены централизованные права доступа, context-menu действия, новая роль 🧰 Helper, страница веб-панели `/access`, обновленные каналы справки команд и улучшенная структура магазина/модерации.
+Подробнее: [`docs/PROBLEMS_SOLVED.md`](docs/PROBLEMS_SOLVED.md).
 
-Подробнее: `docs/permissions.md`.
+## Roadmap
 
+План развития находится в [`docs/ROADMAP.md`](docs/ROADMAP.md). Ближайшие направления:
 
-## v24.1.10 — Channel Cleanup & Music Panel
+- улучшение визуального портфолио и скриншотов;
+- расширение пользовательской web-панели;
+- Lavalink/альтернативный music backend;
+- тесты сервисного слоя;
+- полноценная миграционная система для SQLite;
+- улучшенная observability: structured logs, metrics, uptime checks.
 
-Добавлено:
+## Структура проекта
 
-- автоудаление обычных сообщений в информационных/панельных каналах;
-- канал `🎵・музыка` теперь получает музыкальную панель через `npm run setup`;
-- команды `/music` и `/musicpanel`;
-- поддержка YouTube video/playlist через voice-каналы;
-- новые зависимости `@discordjs/voice`, `play-dl`, `libsodium-wrappers`;
-- настройка `PROTECTED_TEXT_CHANNELS` для дополнительных защищенных каналов.
-
-После обновления выполните:
-
-```bash
-npm run deploy
-npm run setup
+```text
+src/commands/      Slash-команды и context-menu действия
+src/services/      Бизнес-логика модулей
+src/web/           Express web-панель
+src/config/        Конфигурация сервера, каналов и ролей
+src/tools/         CLI-проверки, миграции, диагностика, backup
+docs/              Документация проекта
+data/              База данных и runtime-данные, не коммитить реальные данные
+logs/              Runtime-логи, не коммитить реальные логи
 ```
 
-Подробнее: `docs/music-and-channel-cleanup.md`.
+## Для работодателя
 
+ServerCore можно презентовать как pet-проект уровня “маленький продукт”, потому что он включает:
 
-## v24.1 Server Management UX Upgrade
+- backend на Node.js;
+- интеграцию с внешней платформой Discord;
+- web-интерфейс;
+- хранение данных и миграцию;
+- Docker и CI/CD;
+- role-based access control;
+- диагностику production-проблем;
+- пользовательский UX-flow;
+- техническую документацию.
 
-Добавлены onboarding-чеклист, шаблоны тикетов, история экономики, товар дня, центр панелей 2.0, страница ролей и улучшения управления сервером.
-
-
-## v24.1.16 User Web Panel & Auth Upgrade
-
-Добавлена пользовательская веб-панель: вход по Discord ID через `/webaccount password` или одноразовый код `/webaccount login-code`. Админская панель доступна через логин `Admin` и `WEB_PASSWORD`.
-
-## v24.1.17 Web Panel Menu Upgrade
-
-Добавлено удобное Discord-меню для веб-панели:
-
-- `/webpanel open` — открыть меню веб-панели для себя.
-- `/webpanel post` — опубликовать меню в канал.
-- В `/menu open` добавлен раздел `🌐 Веб-панель`.
-- `npm run setup` публикует меню веб-панели в `🧭・навигация`.
-- Ссылка на вход задается через `WEB_PANEL_URL`.
-
-Рекомендуемое значение для Bothost:
-
-```env
-WEB_PANEL_URL=https://bot-1780694887-7211-r1vers.bothost.tech/login
-```
-
-
-## v24.1 Forum Channels & Thread UX Upgrade
-
-Добавлены forum-каналы, команда `/threadpanel`, веб-страница `/forum-channels` и панель создания тем/веток.
-
-
-## v24.1.21 Bot Quick Menu Restore
-
-Восстановлена панель `🤖 Быстрое меню бота` для канала `🤖・команды-бота`. Панель снова доступна в `/panels`, `/quick-actions` и публикуется через `npm run setup`.
+Короткое портфолио-описание: [`docs/PORTFOLIO.md`](docs/PORTFOLIO.md).
